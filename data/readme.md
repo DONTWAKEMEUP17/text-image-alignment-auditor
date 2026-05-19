@@ -6,3 +6,5 @@
 
 ## sd1x_images.zip 
 是 3000 张原始图片，可视化展示用。 https://drive.google.com/drive/folders/1CivDBvpvf7Y0b8TSd4c7DWoPlfaopoel?usp=sharing [uploading]
+
+![demo](readme.png)
