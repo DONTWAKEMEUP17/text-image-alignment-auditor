@@ -320,5 +320,5 @@ def stats():
 # Static files — serve images
 # ============================================================
 # Uncomment when you have the image dirs set up:
-app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
-app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")
+# app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
+# app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")

@@ -34,7 +34,7 @@ function GalleryCard({ item, model, isSelected, onClick }) {
 // selectedCat: concept_category string | null → filter concept_type
 // selectedImg: image object | null
 // onSelect:    (image object | null) => void
-export function ImageGallery({ model, brushBin, selectedCat, selectedImg, onSelect }) {
+export function ImageGallery({ model, brushBin, selectedImg, onSelect }) {
   const [items,   setItems]   = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -47,12 +47,11 @@ export function ImageGallery({ model, brushBin, selectedCat, selectedImg, onSele
       opts.min_score = brushBin.toFixed(4)
       opts.max_score = (brushBin + binWidth).toFixed(4)
     }
-    if (selectedCat) opts.concept_type = selectedCat
 
     api.images(model, opts)
       .then(data => { setItems(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [model, brushBin, selectedCat])
+  }, [model, brushBin])
 
   if (loading) return (
     <div style={{ padding:'24px 0', textAlign:'center', fontSize:12, color:'var(--color-text-tertiary)' }}>

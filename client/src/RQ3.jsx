@@ -59,6 +59,9 @@ export default function RQ3View() {
           <span className="rq-badge rq3">RQ3</span>
           <span className="ps">SD 1.x only — FLUX ignores CFG</span>
         </div>
+        <div style={{ fontSize:11, color:'var(--color-text-tertiary)', marginBottom:8 }}>
+          CFG = how strictly the model follows your prompt. Higher CFG = more literal. Each line shows how alignment score changes as CFG increases — flat or falling lines mean turning up CFG doesn't help.
+        </div>
         {loading
           ? <div style={{ fontSize:12, color:'var(--color-text-tertiary)', padding:16 }}>Loading…</div>
           : <CFGLineChart lines={lines} bins={bins} maxBinIdx={Math.min(maxBinIdx, safeMax)} />
@@ -81,6 +84,9 @@ export default function RQ3View() {
           <span className="pt">Alignment gain: CFG min → max</span>
           <span className="rq-badge rq3">RQ3</span>
         </div>
+        <div style={{ fontSize:11, color:'var(--color-text-tertiary)', marginBottom:8 }}>
+          Total improvement from lowest to highest CFG setting. A small gain means CFG tuning barely helps — the model structurally can't render that concept type regardless of settings.
+        </div>
         {gains.length > 0 && <GainBarChart gains={gains} />}
         <div className="finding" style={{ marginTop:10 }}>
           <strong>Key finding:</strong> Adjectives improve less than noun chunks across the full CFG range —
@@ -99,6 +105,9 @@ export default function RQ3View() {
                 ? `Showing all bins (${bins[0]} – ${bins[safeMax]})`
                 : `Showing up to ${bins[maxBinIdx]}`}
           </span>
+        </div>
+        <div style={{ fontSize:11, color:'var(--color-text-tertiary)', marginBottom:8 }}>
+           Drag to limit the CFG range shown in the chart above. Try restricting to low CFG (1–8) vs high CFG (13+) to see if the lines flatten out — flat = CFG has no effect on that concept type.
         </div>
         {bins.length > 1 && (
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>

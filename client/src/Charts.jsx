@@ -297,12 +297,14 @@ export function GroupedBarChart({ cats }) {
 
 // ──────────────────────────────────────────────────────────────
 // PairedScatterChart — SD score vs FLUX score (RQ4)
-// data: [{sd_score, flux_score, concept_type}]
-// Points above diagonal → FLUX better; below → SD better
+// Scroll to zoom · drag to pan · click point to select
 // ──────────────────────────────────────────────────────────────
-export function PairedScatterChart({ data }) {
-  const svgRef  = useRef(null)
-  const wrapRef = useRef(null)
+export function PairedScatterChart({ data, onPointClick, selectedPoint }) {
+  const svgRef    = useRef(null)
+  const wrapRef   = useRef(null)
+  const zoomRef   = useRef(null)   // stores current d3.zoom instance
+  const cbRef     = useRef(onPointClick)
+  useEffect(() => { cbRef.current = onPointClick }, [onPointClick])
 
   const draw = useCallback(() => {
     if (!svgRef.current || !wrapRef.current || !data?.length) return
@@ -314,55 +316,114 @@ export function PairedScatterChart({ data }) {
     const allV = data.flatMap(d => [d.sd_score, d.flux_score])
     const mn = Math.max(0, d3.min(allV) - 0.01)
     const mx = d3.max(allV) + 0.01
-    const xSc = d3.scaleLinear().domain([mn, mx]).range([0, cw])
-    const ySc = d3.scaleLinear().domain([mn, mx]).range([ch, 0])
+
+    // Base scales
+    const xBase = d3.scaleLinear().domain([mn, mx]).range([0, cw])
+    const yBase = d3.scaleLinear().domain([mn, mx]).range([ch, 0])
 
     d3.select(svgRef.current).selectAll('*').remove()
-    const svg = d3.select(svgRef.current).attr('width', W).attr('height', H)
-      .append('g').attr('transform', `translate(${M.l},${M.t})`)
+    const root = d3.select(svgRef.current).attr('width', W).attr('height', H)
 
-    // Grid
-    const ticks = [0, 0.25, 0.5, 0.75, 1].map(t => mn + t * (mx - mn))
-    ticks.forEach(v => {
-      svg.append('line').attr('x1', 0).attr('y1', ySc(v)).attr('x2', cw).attr('y2', ySc(v))
-        .attr('stroke', gridColor()).attr('stroke-width', 0.5)
-      svg.append('line').attr('x1', xSc(v)).attr('y1', 0).attr('x2', xSc(v)).attr('y2', ch)
-        .attr('stroke', gridColor()).attr('stroke-width', 0.5)
-      svg.append('text').attr('x', xSc(v)).attr('y', ch + 16)
-        .attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', textColor()).text(v.toFixed(2))
-      svg.append('text').attr('x', -4).attr('y', ySc(v) + 4)
-        .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', textColor()).text(v.toFixed(2))
-    })
+    // Clip path so points don't bleed outside plot area
+    root.append('defs').append('clipPath').attr('id', 'scatter-clip')
+      .append('rect').attr('width', cw).attr('height', ch)
 
-    // Parity line y = x
-    svg.append('line')
-      .attr('x1', xSc(mn)).attr('y1', ySc(mn))
-      .attr('x2', xSc(mx)).attr('y2', ySc(mx))
-      .attr('stroke', '#888').attr('stroke-width', 1)
-      .attr('stroke-dasharray', '5,3').attr('opacity', 0.45)
+    const g = root.append('g').attr('transform', `translate(${M.l},${M.t})`)
 
-    // Points
-    const colorMap = {
-      object:   '#378ADD',
-      abstract: '#D85A30',
-      scene:    '#1D9E75',
-      style:    '#7F77DD',
-    }
-    svg.selectAll('circle.pt').data(data).join('circle').attr('class', 'pt')
-      .attr('cx', d => xSc(d.sd_score))
-      .attr('cy', d => ySc(d.flux_score))
-      .attr('r', 2.5)
-      .attr('fill', d => colorMap[d.concept_type] || '#888')
-      .attr('opacity', 0.45)
-
-    // Axis labels
-    svg.append('text').attr('x', cw / 2).attr('y', ch + 32)
+    // Static axis labels (outside zoom group)
+    g.append('text').attr('x', cw / 2).attr('y', ch + 32)
       .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', textColor()).text('SD 1.x clip score')
-    svg.append('text')
+    g.append('text')
       .attr('transform', `rotate(-90) translate(${-ch / 2}, ${-34})`)
       .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', textColor()).text('FLUX.1 clip score')
-  }, [data])
+
+    // Groups that get updated on zoom
+    const gGrid   = g.append('g').attr('class', 'grid')
+    const gInner  = g.append('g').attr('clip-path', 'url(#scatter-clip)')
+    const gPoints = gInner.append('g').attr('class', 'points')
+
+    const colorMap = { object:'#378ADD', abstract:'#D85A30', scene:'#1D9E75', style:'#7F77DD' }
+
+    function renderAt(xSc, ySc) {
+      // Grid + tick labels
+      gGrid.selectAll('*').remove()
+      const ticks = xSc.ticks(5)
+      ticks.forEach(v => {
+        gGrid.append('line').attr('x1', xSc(v)).attr('y1', 0).attr('x2', xSc(v)).attr('y2', ch)
+          .attr('stroke', gridColor()).attr('stroke-width', 0.5)
+        gGrid.append('line').attr('x1', 0).attr('y1', ySc(v)).attr('x2', cw).attr('y2', ySc(v))
+          .attr('stroke', gridColor()).attr('stroke-width', 0.5)
+        gGrid.append('text').attr('x', xSc(v)).attr('y', ch + 14)
+          .attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', textColor()).text(v.toFixed(2))
+        gGrid.append('text').attr('x', -4).attr('y', ySc(v) + 4)
+          .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', textColor()).text(v.toFixed(2))
+      })
+
+      // Parity line y = x (clipped)
+      gGrid.append('line')
+        .attr('x1', xSc(mn)).attr('y1', ySc(mn))
+        .attr('x2', xSc(mx)).attr('y2', ySc(mx))
+        .attr('stroke', '#888').attr('stroke-width', 1)
+        .attr('stroke-dasharray', '5,3').attr('opacity', 0.45)
+        .attr('clip-path', 'url(#scatter-clip)')
+
+      // Points
+      gPoints.selectAll('circle.pt').data(data, d => d.prompt)
+        .join('circle').attr('class', 'pt')
+        .attr('cx', d => xSc(d.sd_score))
+        .attr('cy', d => ySc(d.flux_score))
+        .attr('r', d => selectedPoint?.prompt === d.prompt ? 6 : 2.5)
+        .attr('fill', d => colorMap[d.concept_type] || '#888')
+        .attr('opacity', d => selectedPoint ? (selectedPoint.prompt === d.prompt ? 1 : 0.2) : 0.45)
+        .attr('stroke', d => selectedPoint?.prompt === d.prompt ? '#fff' : 'none')
+        .attr('stroke-width', 1.5)
+        .style('cursor', 'pointer')
+        .on('click', (event, d) => { event.stopPropagation(); cbRef.current?.(d) })
+    }
+
+    // Initial render
+    renderAt(xBase, yBase)
+
+    // Zoom behaviour
+    const zoom = d3.zoom()
+      .scaleExtent([1, 20])
+      .translateExtent([[0, 0], [cw, ch]])
+      .extent([[0, 0], [cw, ch]])
+      .on('zoom', ({ transform }) => {
+        const xNew = transform.rescaleX(xBase)
+        const yNew = transform.rescaleY(yBase)
+        renderAt(xNew, yNew)
+      })
+
+    zoomRef.current = zoom
+
+    // Invisible rect to capture zoom events only (pointer-events via style so points stay clickable)
+    g.append('rect')
+      .attr('width', cw).attr('height', ch)
+      .attr('fill', 'transparent')
+      .style('cursor', 'grab')
+      .lower()   // push behind points so clicks reach circles first
+      .call(zoom)
+
+  }, [data, selectedPoint])
 
   useResizeDraw(wrapRef, draw)
-  return <div ref={wrapRef} style={{ width:'100%' }}><svg ref={svgRef} style={{ width:'100%', display:'block' }} /></div>
+
+  function resetZoom() {
+    if (!svgRef.current || !zoomRef.current) return
+    d3.select(svgRef.current).select('rect[fill="transparent"]')
+      .transition().duration(400)
+      .call(zoomRef.current.transform, d3.zoomIdentity)
+  }
+
+  return (
+    <div ref={wrapRef} style={{ width:'100%', position:'relative' }}>
+      <button onClick={resetZoom} style={{
+        position:'absolute', top:4, right:4, zIndex:2,
+        fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--color-border)',
+        background:'var(--color-surface)', color:'var(--color-text-tertiary)', cursor:'pointer',
+      }}>reset zoom</button>
+      <svg ref={svgRef} style={{ width:'100%', display:'block' }} />
+    </div>
+  )
 }
