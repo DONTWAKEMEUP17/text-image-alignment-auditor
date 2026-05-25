@@ -136,17 +136,18 @@ export default function RQ4View() {
           <span className="rq-badge rq4">RQ4</span>
         </div>
         <div style={{ fontSize:11, color:'var(--color-text-tertiary)', marginBottom:8 }}>
-          Each dot = one prompt run through both models. X = SD 1.x score, Y = FLUX.1 score. Dots above the dashed line = FLUX did better on that prompt. Colored by the overall type of prompt.  Click any dot to see the prompt and both images side by side.
+          Each dot = one prompt run through both models. X = SD 1.x score, Y = FLUX.1 score. Dots above the dashed line = FLUX did better on that prompt. Colored by the overall type of prompt. 👆 Click any dot to see the prompt and both images side by side.
         </div>
         <div className="legend-row" style={{ marginBottom:8 }}>
+          <div className="leg"><div className="ld" style={{ background:'#7F77DD' }} /><span>Character</span></div>
           <div className="leg"><div className="ld" style={{ background:'#378ADD' }} /><span>Object</span></div>
-          <div className="leg"><div className="ld" style={{ background:'#D85A30' }} /><span>Abstract</span></div>
           <div className="leg"><div className="ld" style={{ background:'#1D9E75' }} /><span>Scene</span></div>
-          <div className="leg"><div className="ld" style={{ background:'#7F77DD' }} /><span>Style</span></div>
+          <div className="leg"><div className="ld" style={{ background:'#D85A30' }} /><span>Abstract</span></div>
+          <div className="leg"><div className="ld" style={{ background:'#BA7517' }} /><span>Style only</span></div>
         </div>
         <PairedScatterChart
           data={scatter}
-          onPointClick={p => setSelectedPoint(prev => prev?.prompt === p.prompt ? null : p)}
+          onPointClick={p => setSelectedPoint(prev => prev?.sd_image === p.sd_image ? null : p)}
           selectedPoint={selectedPoint}
         />
       </div>
@@ -169,7 +170,7 @@ export default function RQ4View() {
               </div>
               <img src={api.imageUrl(selectedPoint.sd_image, 'sd1')} width={140} height={140}
                 style={{ objectFit:'cover', borderRadius:6, display:'block' }}
-                onError={e => { e.target.style.cssText='width:140px;height:140px;background:#2a2a2a;border-radius:6px'; e.target.src='' }}
+                onError={e => { e.target.style.cssText='width:140px;height:140px;background:#E8E6E0;border-radius:6px'; e.target.src='' }}
               />
             </div>
             <div style={{ textAlign:'center' }}>
@@ -178,7 +179,7 @@ export default function RQ4View() {
               </div>
               <img src={api.imageUrl(selectedPoint.flux_image, 'flux')} width={140} height={140}
                 style={{ objectFit:'cover', borderRadius:6, display:'block' }}
-                onError={e => { e.target.style.cssText='width:140px;height:140px;background:#2a2a2a;border-radius:6px'; e.target.src='' }}
+                onError={e => { e.target.style.cssText='width:140px;height:140px;background:#E8E6E0;border-radius:6px'; e.target.src='' }}
               />
             </div>
             <div style={{ fontSize:13, lineHeight:2 }}>

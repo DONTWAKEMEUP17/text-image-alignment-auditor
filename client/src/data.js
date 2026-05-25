@@ -5,9 +5,9 @@ export const PALETTE = [
 ]
 
 // ── Dark-mode helpers ──────────────────────────────────────────
-export const isDark    = () => window.matchMedia('(prefers-color-scheme:dark)').matches
-export const textColor = () => isDark() ? '#c2c0b6' : '#5F5E5A'
-export const gridColor = () => isDark() ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+export const isDark    = () => false   // light theme forced
+export const textColor = () => '#4A4945'
+export const gridColor = () => 'rgba(0,0,0,0.07)'
 
 // ── Image-level clip_score: real range ≈ 0.10 – 0.45 ──────────
 export function scoreBarColor(s) {

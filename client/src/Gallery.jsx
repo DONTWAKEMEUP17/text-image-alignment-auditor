@@ -19,7 +19,7 @@ function GalleryCard({ item, model, isSelected, onClick }) {
         alt={item.prompt?.slice(0, 40) ?? ''}
         width={72} height={72}
         style={{ objectFit:'cover', borderRadius:4, display:'block' }}
-        onError={e => { e.target.style.cssText = 'width:72px;height:72px;background:#2a2a2a;border-radius:4px'; e.target.src = '' }}
+        onError={e => { e.target.style.cssText = 'width:72px;height:72px;background:#E8E6E0;border-radius:4px'; e.target.src = '' }}
       />
       <span className="sb" style={{ background:sc.bg, color:sc.tx }}>
         {item.clip_score?.toFixed(3) ?? '—'}
@@ -141,7 +141,7 @@ export function DetailPanel({ selectedImg, model }) {
           src={api.imageUrl(imgId(selectedImg, model), model)}
           alt="" width={56} height={56}
           style={{ objectFit:'cover', borderRadius:4, flexShrink:0 }}
-          onError={e => { e.target.style.cssText = 'width:56px;height:56px;background:#2a2a2a;border-radius:4px'; e.target.src = '' }}
+          onError={e => { e.target.style.cssText = 'width:56px;height:56px;background:#E8E6E0;border-radius:4px'; e.target.src = '' }}
         />
         <div style={{ fontSize:11, color:'var(--color-text-secondary)', lineHeight:1.5 }}>
           {selectedImg.prompt?.slice(0, 100) ?? ''}

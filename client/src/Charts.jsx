@@ -27,7 +27,7 @@ export function HistogramChart({ data, brushBin, onBrush }) {
   const draw = useCallback(() => {
     if (!svgRef.current || !wrapRef.current || !data?.length) return
     const W = wrapRef.current.clientWidth || 300
-    const H = 100, M = { t:8, r:4, b:16, l:4 }
+    const H = 140, M = { t:8, r:4, b:20, l:4 }
     const cw = W - M.l - M.r, ch = H - M.t - M.b
     const maxVal = d3.max(data, d => d.count)
     const barW   = cw / data.length
@@ -130,7 +130,7 @@ export function CFGLineChart({ lines, bins, maxBinIdx }) {
     if (!svgRef.current || !wrapRef.current || !lines?.length || !bins?.length) return
     const n = Math.min(maxBinIdx + 1, bins.length)
     const W = wrapRef.current.clientWidth || 300
-    const H = 180, M = { l:44, r:12, t:10, b:28 }
+    const H = 220, M = { l:50, r:12, t:12, b:30 }
     const cw = W - M.l - M.r, ch = H - M.t - M.b
 
     const allScores = lines.flatMap(l => l.scores.slice(0, n)).filter(s => s != null)
@@ -150,14 +150,14 @@ export function CFGLineChart({ lines, bins, maxBinIdx }) {
       svg.append('line').attr('x1', 0).attr('y1', y).attr('x2', cw).attr('y2', y)
         .attr('stroke', gridColor()).attr('stroke-width', 0.5)
       svg.append('text').attr('x', -4).attr('y', y + 4).attr('text-anchor', 'end')
-        .attr('font-size', 10).attr('fill', textColor()).text(yv.toFixed(3))
+        .attr('font-size', 12).attr('fill', textColor()).text(yv.toFixed(3))
     }
 
     // X-axis labels
     bins.slice(0, n).forEach((b, i) => {
       svg.append('text')
-        .attr('x', (i / ((n - 1) || 1)) * cw).attr('y', ch + 20)
-        .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', textColor()).text(b)
+        .attr('x', (i / ((n - 1) || 1)) * cw).attr('y', ch + 22)
+        .attr('text-anchor', 'middle').attr('font-size', 12).attr('fill', textColor()).text(b)
     })
 
     const lineGen = d3.line()
@@ -201,7 +201,7 @@ export function GainBarChart({ gains }) {
   const draw = useCallback(() => {
     if (!svgRef.current || !wrapRef.current || !gains?.length) return
     const W = wrapRef.current.clientWidth || 300
-    const bh = 18, gap = 7, lw = 108, pad = 10
+    const bh = 22, gap = 9, lw = 112, pad = 10
     const H = pad + gains.length * (bh + gap) + pad
     const maxGain = Math.max(...gains.map(d => d.gain), 0.001)
     const avail = W - lw - 44
@@ -213,11 +213,11 @@ export function GainBarChart({ gains }) {
       const y  = pad + i * (bh + gap)
       const bw = Math.max(3, (d.gain / maxGain) * avail)
       svg.append('text').attr('x', lw - 3).attr('y', y + bh / 2 + 4)
-        .attr('text-anchor', 'end').attr('font-size', 11).attr('fill', textColor()).text(d.label)
+        .attr('text-anchor', 'end').attr('font-size', 13).attr('fill', textColor()).text(d.label)
       svg.append('rect').attr('x', lw).attr('y', y)
         .attr('width', bw).attr('height', bh).attr('rx', 3).attr('fill', d.color)
       svg.append('text').attr('x', lw + bw + 6).attr('y', y + bh / 2 + 4)
-        .attr('font-size', 11).attr('font-weight', 500).attr('fill', textColor())
+        .attr('font-size', 13).attr('font-weight', 500).attr('fill', textColor())
         .text(`+${d.gain.toFixed(4)}`)
     })
   }, [gains])
@@ -266,7 +266,7 @@ export function GroupedBarChart({ cats }) {
   const draw = useCallback(() => {
     if (!svgRef.current || !wrapRef.current || !cats?.length) return
     const W = wrapRef.current.clientWidth || 600
-    const bh = 10, gap = 5, grpGap = 14, lw = 112, pad = 10
+    const bh = 13, gap = 6, grpGap = 16, lw = 116, pad = 10
     const H = pad + cats.length * (bh * 2 + gap + grpGap) + pad
     const maxVal = Math.max(...cats.flatMap(d => [d.sd1, d.flux]), 0.001)
     const avail  = W - lw - 36
@@ -277,17 +277,17 @@ export function GroupedBarChart({ cats }) {
     cats.forEach((d, i) => {
       const y = pad + i * (bh * 2 + gap + grpGap)
       svg.append('text').attr('x', lw - 3).attr('y', y + bh + 4)
-        .attr('text-anchor', 'end').attr('font-size', 11).attr('fill', textColor()).text(d.label)
+        .attr('text-anchor', 'end').attr('font-size', 13).attr('fill', textColor()).text(d.label)
       // SD bar
       svg.append('rect').attr('x', lw).attr('y', y)
         .attr('width', (d.sd1 / maxVal) * avail).attr('height', bh).attr('rx', 2).attr('fill', '#378ADD')
       svg.append('text').attr('x', lw + (d.sd1 / maxVal) * avail + 5).attr('y', y + bh / 2 + 4)
-        .attr('font-size', 10).attr('fill', textColor()).text(d.sd1.toFixed(4))
+        .attr('font-size', 12).attr('fill', textColor()).text(d.sd1.toFixed(4))
       // FLUX bar
       svg.append('rect').attr('x', lw).attr('y', y + bh + gap)
         .attr('width', (d.flux / maxVal) * avail).attr('height', bh).attr('rx', 2).attr('fill', '#1D9E75')
       svg.append('text').attr('x', lw + (d.flux / maxVal) * avail + 5).attr('y', y + bh + gap + bh / 2 + 4)
-        .attr('font-size', 10).attr('fill', textColor()).text(d.flux.toFixed(4))
+        .attr('font-size', 12).attr('fill', textColor()).text(d.flux.toFixed(4))
     })
   }, [cats])
 
@@ -309,7 +309,7 @@ export function PairedScatterChart({ data, onPointClick, selectedPoint }) {
   const draw = useCallback(() => {
     if (!svgRef.current || !wrapRef.current || !data?.length) return
     const W = wrapRef.current.clientWidth || 400
-    const H = Math.min(Math.round(W * 0.65), 300)
+    const H = Math.min(Math.round(W * 0.55), 400)
     const M = { l:44, r:16, t:12, b:40 }
     const cw = W - M.l - M.r, ch = H - M.t - M.b
 
@@ -342,7 +342,13 @@ export function PairedScatterChart({ data, onPointClick, selectedPoint }) {
     const gInner  = g.append('g').attr('clip-path', 'url(#scatter-clip)')
     const gPoints = gInner.append('g').attr('class', 'points')
 
-    const colorMap = { object:'#378ADD', abstract:'#D85A30', scene:'#1D9E75', style:'#7F77DD' }
+    const colorMap = {
+      character:  '#7F77DD',
+      object:     '#378ADD',
+      scene:      '#1D9E75',
+      abstract:   '#D85A30',
+      style_only: '#BA7517',
+    }
 
     function renderAt(xSc, ySc) {
       // Grid + tick labels
@@ -372,11 +378,11 @@ export function PairedScatterChart({ data, onPointClick, selectedPoint }) {
         .join('circle').attr('class', 'pt')
         .attr('cx', d => xSc(d.sd_score))
         .attr('cy', d => ySc(d.flux_score))
-        .attr('r', d => selectedPoint?.prompt === d.prompt ? 6 : 2.5)
-        .attr('fill', d => colorMap[d.concept_type] || '#888')
-        .attr('opacity', d => selectedPoint ? (selectedPoint.prompt === d.prompt ? 1 : 0.2) : 0.45)
-        .attr('stroke', d => selectedPoint?.prompt === d.prompt ? '#fff' : 'none')
-        .attr('stroke-width', 1.5)
+        .attr('r', d => selectedPoint?.sd_image === d.sd_image ? 8 : 4)
+        .attr('fill', d => colorMap[d.concept_type] || '#aaa')
+        .attr('opacity', d => selectedPoint ? (selectedPoint.sd_image === d.sd_image ? 1 : 0.3) : 0.75)
+        .attr('stroke', d => selectedPoint?.sd_image === d.sd_image ? '#fff' : 'rgba(255,255,255,0.4)')
+        .attr('stroke-width', d => selectedPoint?.sd_image === d.sd_image ? 2 : 0.5)
         .style('cursor', 'pointer')
         .on('click', (event, d) => { event.stopPropagation(); cbRef.current?.(d) })
     }
