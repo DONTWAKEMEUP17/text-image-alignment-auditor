@@ -19,10 +19,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- DuckDB 连接 ---
-DB_PATH = os.environ.get("DB_PATH", "./alignment_auditor.duckdb")
-IMG_DIR_SD = os.environ.get("IMG_DIR_SD", "../images/sd1x_images")
-IMG_DIR_FLUX = os.environ.get("IMG_DIR_FLUX", "../images/flux_images_paired")
+# --- DuckDB ---
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.environ.get("DB_PATH", os.path.join(PROJECT_ROOT, "server", "alignment_auditor.duckdb"))
+IMG_DIR_SD = os.environ.get("IMG_DIR_SD", os.path.join(PROJECT_ROOT, "images", "sd1x_images"))
+IMG_DIR_FLUX = os.environ.get("IMG_DIR_FLUX", os.path.join(PROJECT_ROOT, "images", "flux_images_paired"))
 
 
 def get_db():
@@ -319,6 +320,5 @@ def stats():
 # ============================================================
 # Static files — serve images
 # ============================================================
-# Uncomment when you have the image dirs set up:
-# app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
-# app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")
+app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
+app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")

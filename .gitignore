@@ -28,5 +28,5 @@ yarn-debug.log*
 yarn-error.log*
 
 node_modules/
-data/sd1x_images/
-data/flux_images_paired/
+images/sd1x_images/
+images/flux_images_paired/
