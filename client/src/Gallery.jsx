@@ -40,7 +40,7 @@ export function ImageGallery({ model, brushBin, selectedImg, onSelect }) {
 
   useEffect(() => {
     setLoading(true)
-    const opts = { limit: 50, sort: 'clip_score', order: 'asc' }
+    const opts = { limit: 200, sort: 'clip_score', order: 'asc' }
 
     if (brushBin !== null && brushBin !== undefined) {
       const binWidth = 0.02
@@ -139,9 +139,9 @@ export function DetailPanel({ selectedImg, model }) {
       <div style={{ display:'flex', gap:10, marginBottom:10, alignItems:'flex-start' }}>
         <img
           src={api.imageUrl(imgId(selectedImg, model), model)}
-          alt="" width={56} height={56}
-          style={{ objectFit:'cover', borderRadius:4, flexShrink:0 }}
-          onError={e => { e.target.style.cssText = 'width:56px;height:56px;background:#E8E6E0;border-radius:4px'; e.target.src = '' }}
+          alt="" width={240} height={240}
+          style={{ objectFit:'cover', borderRadius:6, flexShrink:0 }}
+          onError={e => { e.target.style.cssText = 'width:200px;height:200px;background:#E8E6E0;border-radius:6px'; e.target.src = '' }}
         />
         <div style={{ fontSize:11, color:'var(--color-text-secondary)', lineHeight:1.5 }}>
           {selectedImg.prompt?.slice(0, 100) ?? ''}
