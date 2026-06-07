@@ -10,6 +10,7 @@ import duckdb
 import os
 
 
+
 app = FastAPI(title="Alignment Auditor API", version="1.0")
 
 app.add_middleware(
@@ -233,7 +234,9 @@ def rq4_paired_scatter(limit: int = Query(500, ge=1, le=3000)):
             f.clip_score AS flux_score,
             s.concept_type,
             s.image_name AS sd_image,
-            f.filename AS flux_image
+            f.filename AS flux_image,
+            s.image_url AS sd_image_url,
+            f.image_url AS flux_image_url
         FROM sd_images s
         JOIN flux_images f ON s.prompt = f.prompt
         ORDER BY ABS(f.clip_score - s.clip_score) DESC
@@ -320,5 +323,19 @@ def stats():
 # ============================================================
 # Static files — serve images
 # ============================================================
-app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
-app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")
+# app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
+# app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")
+
+@app.get("/api/pairedScatter")
+def paired_scatter():
+    df = con.execute("""
+        SELECT
+            s.prompt_idx,
+            s.clip_score AS sd_score,
+            f.clip_score AS flux_score,
+            s.image_url  AS sd_image_url,     
+            f.image_url  AS flux_image_url    
+        FROM sd_images s
+        JOIN flux_images f USING (prompt_idx)
+    """).df()
+    return df.to_dict(orient="records")

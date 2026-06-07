@@ -57,7 +57,4 @@ export const api = {
   // Returns {sd_images, sd_concepts, flux_images, flux_concepts}
   stats: () => get('/api/stats'),
 
-  // ── Image URLs (static files, not API routes) ─────────────────
-  imageUrl: (filename, model) =>
-    model === 'sd1' ? `/images/sd/${filename}` : `/images/flux/${filename}`,
 }

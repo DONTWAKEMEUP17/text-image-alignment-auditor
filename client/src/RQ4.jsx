@@ -168,7 +168,7 @@ export default function RQ4View() {
               <div style={{ fontSize:11, color:'var(--color-text-tertiary)', marginBottom:4 }}>
                 SD 1.x — <strong style={{ color:'var(--color-text-primary)' }}>{selectedPoint.sd_score.toFixed(3)}</strong>
               </div>
-              <img src={api.imageUrl(selectedPoint.sd_image, 'sd1')} width={140} height={140}
+              <img src={selectedPoint.sd_image_url ?? ''} width={140} height={140}
                 style={{ objectFit:'cover', borderRadius:6, display:'block' }}
                 onError={e => { e.target.style.cssText='width:140px;height:140px;background:#E8E6E0;border-radius:6px'; e.target.src='' }}
               />
@@ -177,7 +177,7 @@ export default function RQ4View() {
               <div style={{ fontSize:11, color:'var(--color-text-tertiary)', marginBottom:4 }}>
                 FLUX.1 — <strong style={{ color:'var(--color-text-primary)' }}>{selectedPoint.flux_score.toFixed(3)}</strong>
               </div>
-              <img src={api.imageUrl(selectedPoint.flux_image, 'flux')} width={140} height={140}
+              <img src={selectedPoint.flux_image_url ?? ''} width={140} height={140}
                 style={{ objectFit:'cover', borderRadius:6, display:'block' }}
                 onError={e => { e.target.style.cssText='width:140px;height:140px;background:#E8E6E0;border-radius:6px'; e.target.src='' }}
               />
@@ -209,7 +209,7 @@ export default function RQ4View() {
           <span className="pt">Sample pairs — largest score gap</span>
           <span className="ps">SD 1.x left · FLUX.1 right</span>
         </div>
-        <CompareGallery pairs={scatter.slice(0, 10)} />
+        <CompareGallery pairs={scatter.slice(0, 50)} />
       </div>
 
     </div>

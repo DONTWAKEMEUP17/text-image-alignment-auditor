@@ -11,7 +11,7 @@ function imgId(item, model) {
 function GalleryCard({ item, model, isSelected, onClick }) {
   const isFlux = model === 'flux'
   const sc  = scoreColor(item.clip_score ?? 0)
-  const src = api.imageUrl(isFlux ? item.filename : item.image_name, model)
+  const src = item.image_url ?? ''
   return (
     <div className={`gc${isSelected ? ' selected' : ''}`} onClick={onClick}>
       <img
@@ -92,15 +92,15 @@ export function CompareGallery({ pairs }) {
   )
   return (
     <div className="gal">
-      {pairs.slice(0, 10).flatMap((p, i) => [
+      {pairs.slice(0, 50).flatMap((p, i) => [
         <GalleryCard
           key={`sd-${i}`}
-          item={{ image_name:p.sd_image, clip_score:p.sd_score, prompt:p.prompt }}
+          item={{ image_name:p.sd_image, clip_score:p.sd_score, prompt:p.prompt, image_url:p.sd_image_url }}
           model="sd1" isSelected={false} onClick={() => {}}
         />,
         <GalleryCard
           key={`fx-${i}`}
-          item={{ filename:p.flux_image, clip_score:p.flux_score, prompt:p.prompt }}
+          item={{ filename:p.flux_image, clip_score:p.flux_score, prompt:p.prompt, image_url:p.flux_image_url }}
           model="flux" isSelected={false} onClick={() => {}}
         />,
       ])}
@@ -138,7 +138,7 @@ export function DetailPanel({ selectedImg, model }) {
       {/* Thumbnail + prompt */}
       <div style={{ display:'flex', gap:10, marginBottom:10, alignItems:'flex-start' }}>
         <img
-          src={api.imageUrl(imgId(selectedImg, model), model)}
+          src={selectedImg.image_url ?? ''}
           alt="" width={240} height={240}
           style={{ objectFit:'cover', borderRadius:6, flexShrink:0 }}
           onError={e => { e.target.style.cssText = 'width:200px;height:200px;background:#E8E6E0;border-radius:6px'; e.target.src = '' }}

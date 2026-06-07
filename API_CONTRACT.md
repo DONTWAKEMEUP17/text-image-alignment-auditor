@@ -191,7 +191,9 @@ Per-prompt paired comparison scatter.
     "flux_score": 0.3102,
     "concept_type": "noun_chunk",
     "sd_image": "part1_00234.png",
-    "flux_image": "42_flux.png"
+    "flux_image": "42_flux.png",
+    "sd_image_url": "https://...",
+    "flux_image_url": "https://..."
   },
   ...
 ]
@@ -225,7 +227,7 @@ Per-concept breakdown for one image.
 
 ### `GET /api/images`
 
-Paginated image list with filters.
+Paginated image list with filters. Each row includes `image_url` — use this directly as the `<img src>`.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -237,6 +239,19 @@ Paginated image list with filters.
 | order | string | "asc" | "asc" or "desc" |
 | limit | int | 50 | Page size (1–200) |
 | offset | int | 0 | Pagination offset |
+
+**Response:**
+```json
+[
+  {
+    "image_name": "part1_00234.png",
+    "concept_type": "noun_chunk",
+    "clip_score": 0.3215,
+    "image_url": "https://...",
+    "...": "other columns from table"
+  }
+]
+```
 
 ### `GET /api/stats`
 
@@ -256,8 +271,9 @@ Dataset summary.
 
 ## Image URLs
 
-- SD 1.x: `GET /images/sd/{image_name}`
-- FLUX: `GET /images/flux/{filename}`
+Images are no longer served as static files. Each image row returned by `GET /api/images` contains an `image_url` field — use it directly as the `<img src>`.
+
+> **Note:** `GET /api/rq4/paired-scatter` currently returns `sd_image` / `flux_image` as filenames only. To show thumbnails in the RQ4 scatter panel, update that endpoint to also return `sd_image_url` / `flux_image_url`.
 
 ---
 
