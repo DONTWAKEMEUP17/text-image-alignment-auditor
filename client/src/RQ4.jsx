@@ -87,7 +87,7 @@ export default function RQ4View() {
         color: 'var(--color-text-tertiary)', textTransform: 'uppercase',
         padding: '4px 2px', borderBottom: '1px solid var(--color-border)',
       }}>
-        A — Concept-level breakdown &nbsp;·&nbsp; categories: noun chunk / adjective (spaCy)
+        A — Concept-level breakdown &nbsp;·&nbsp; 6 categories: content noun · style · quality · artist · emotion · other
       </div>
 
       {/* Grouped bar */}

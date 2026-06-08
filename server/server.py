@@ -90,14 +90,19 @@ def rq2_top_failures(
     limit: int = Query(20, ge=1, le=100),
 ):
     """Lowest-scoring concepts — the ones the model fails at most."""
-    table = "sd_concepts" if model == "sd1x" else "flux_concepts"
+    is_sd = model == "sd1x"
+    concepts_table = "sd_concepts" if is_sd else "flux_concepts"
+    images_table = "sd_images" if is_sd else "flux_images"
+    img_join_col = "image_name" if is_sd else "filename"
     con = get_db()
-    where = f"WHERE concept_category = '{category}'" if category else ""
+    where = f"WHERE c.concept_category = '{category}'" if category else ""
     df = con.execute(f"""
-        SELECT concept_text, concept_category, concept_clip_score, prompt_idx
-        FROM {table}
+        SELECT c.concept_text, c.concept_category, c.concept_clip_score, c.prompt_idx,
+               c.image_name, i.image_url, i.prompt
+        FROM {concepts_table} c
+        JOIN {images_table} i ON c.image_name = i.{img_join_col}
         {where}
-        ORDER BY concept_clip_score ASC
+        ORDER BY c.concept_clip_score ASC
         LIMIT {limit}
     """).fetchdf()
     con.close()
@@ -260,10 +265,10 @@ def image_concepts(
         col = "image_name"
     else:
         table = "flux_concepts"
-        col = "filename"
+        col = "image_name"  # flux_concepts uses image_name, not filename
     con = get_db()
     df = con.execute(f"""
-        SELECT concept_text, concept_category, concept_pos, concept_clip_score
+        SELECT concept_text, concept_category, concept_clip_score
         FROM {table}
         WHERE {col} = ?
         ORDER BY concept_clip_score ASC
@@ -276,6 +281,7 @@ def image_concepts(
 def list_images(
     model: str = Query("sd1x", enum=["sd1x", "flux1"]),
     concept_type: str = Query(None),
+    concept_category: str = Query(None),
     min_score: float = Query(None),
     max_score: float = Query(None),
     sort: str = Query("clip_score", enum=["clip_score", "cfg"]),
@@ -284,7 +290,11 @@ def list_images(
     offset: int = Query(0, ge=0),
 ):
     """Paginated image list with filters."""
-    table = "sd_images" if model == "sd1x" else "flux_images"
+    is_sd = model == "sd1x"
+    table = "sd_images" if is_sd else "flux_images"
+    img_key = "image_name" if is_sd else "filename"
+    concepts_table = "sd_concepts" if is_sd else "flux_concepts"
+
     conditions = []
     if concept_type:
         conditions.append(f"concept_type = '{concept_type}'")
@@ -292,6 +302,13 @@ def list_images(
         conditions.append(f"clip_score >= {min_score}")
     if max_score is not None:
         conditions.append(f"clip_score <= {max_score}")
+    if concept_category:
+        conditions.append(f"""
+            {img_key} IN (
+                SELECT DISTINCT image_name FROM {concepts_table}
+                WHERE concept_category = '{concept_category}'
+            )
+        """)
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     con = get_db()
@@ -326,16 +343,3 @@ def stats():
 # app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
 # app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")
 
-@app.get("/api/pairedScatter")
-def paired_scatter():
-    df = con.execute("""
-        SELECT
-            s.prompt_idx,
-            s.clip_score AS sd_score,
-            f.clip_score AS flux_score,
-            s.image_url  AS sd_image_url,     
-            f.image_url  AS flux_image_url    
-        FROM sd_images s
-        JOIN flux_images f USING (prompt_idx)
-    """).df()
-    return df.to_dict(orient="records")

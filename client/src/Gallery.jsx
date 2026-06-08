@@ -4,7 +4,7 @@ import { scoreColor, conceptScoreBarColor } from './data'
 
 // ── helpers ─────────────────────────────────────────────────────
 function imgId(item, model) {
-  return model === 'flux' ? item.filename : item.image_name
+  return model === 'flux' ? (item.filename ?? item.image_name) : item.image_name
 }
 
 // ── Single gallery card ─────────────────────────────────────────
@@ -31,10 +31,10 @@ function GalleryCard({ item, model, isSelected, onClick }) {
 
 // ── ImageGallery — main gallery for RQ1+2 ──────────────────────
 // brushBin:    bin_start float | null  → filter min_score/max_score
-// selectedCat: concept_category string | null → filter concept_type
+// selectedCat: concept_category string | null → filter by concept category
 // selectedImg: image object | null
 // onSelect:    (image object | null) => void
-export function ImageGallery({ model, brushBin, selectedImg, onSelect }) {
+export function ImageGallery({ model, brushBin, selectedCat, selectedImg, onSelect }) {
   const [items,   setItems]   = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -48,10 +48,14 @@ export function ImageGallery({ model, brushBin, selectedImg, onSelect }) {
       opts.max_score = (brushBin + binWidth).toFixed(4)
     }
 
+    if (selectedCat) {
+      opts.concept_category = selectedCat
+    }
+
     api.images(model, opts)
       .then(data => { setItems(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [model, brushBin])
+  }, [model, brushBin, selectedCat])
 
   if (loading) return (
     <div style={{ padding:'24px 0', textAlign:'center', fontSize:12, color:'var(--color-text-tertiary)' }}>

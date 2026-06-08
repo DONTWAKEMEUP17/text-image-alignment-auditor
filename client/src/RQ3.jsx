@@ -89,8 +89,7 @@ export default function RQ3View() {
         </div>
         {gains.length > 0 && <GainBarChart gains={gains} />}
         <div className="finding" style={{ marginTop:10 }}>
-          <strong>Key finding:</strong> Adjectives improve less than noun chunks across the full CFG range —
-          increasing CFG cannot resolve concept-level grounding failures for abstract modifiers. The failure is architectural.
+          <strong>Key finding:</strong> Increasing CFG actively hurts other adjectives and style modifiers (scores fall as CFG rises), while artist references are the only category that meaningfully benefits from higher CFG. Content nouns are largely unaffected. For most concept types, turning up CFG does not improve — and can worsen — alignment.
         </div>
       </div>
 
