@@ -5,7 +5,6 @@
 # ============================================================
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import duckdb
 import os
 
@@ -328,14 +327,21 @@ def stats():
 
 @app.get("/api/pairedScatter")
 def paired_scatter():
-    df = con.execute("""
-        SELECT
-            s.prompt_idx,
-            s.clip_score AS sd_score,
-            f.clip_score AS flux_score,
-            s.image_url  AS sd_image_url,     
-            f.image_url  AS flux_image_url    
-        FROM sd_images s
-        JOIN flux_images f USING (prompt_idx)
-    """).df()
-    return df.to_dict(orient="records")
+    """Return all paired SD/FLUX scores and CDN-backed image URLs."""
+    con = get_db()
+    try:
+        cursor = con.execute("""
+            SELECT
+                s.prompt,
+                s.clip_score AS sd_score,
+                f.clip_score AS flux_score,
+                s.image_url AS sd_image_url,
+                f.image_url AS flux_image_url
+            FROM sd_images s
+            JOIN flux_images f USING (prompt)
+            ORDER BY s.prompt
+        """)
+        columns = [description[0] for description in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    finally:
+        con.close()

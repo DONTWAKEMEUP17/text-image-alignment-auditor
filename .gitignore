@@ -1,6 +1,13 @@
 # Dependencies
 node_modules/
 package-lock.json
+.venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 
 # Environment variables
 .env

@@ -1,5 +1,8 @@
 # Alignment Auditor
 
+Alignment Auditor was developed by **Xiaoyu Zhong** and **`yhuan331`** as a team
+project for ECS 273 at UC Davis.
+
 ## Description
 
 Alignment Auditor is an interactive visual analytics tool for evaluating how well text-to-image generative models render the concepts described in their input prompts. The tool uses **CLIP scores** — a measure of semantic similarity between an image and its prompt — to quantify and compare alignment quality across two models: **Stable Diffusion 1.x (SD 1.x)** and **FLUX.1**. Prompts and the SD 1.x reference images are drawn from the [DiffusionDB](https://huggingface.co/datasets/poloclub/diffusiondb) dataset; the FLUX.1 images are generated from the same prompts so the two models can be compared head-to-head.
@@ -19,7 +22,36 @@ No data preparation is required to run the app.
 
 - The pre-built database (`server/alignment_auditor.duckdb`) ships with the repository and contains all pre-computed CLIP scores and concept labels.
 - The generated images are hosted on a **public Hugging Face dataset** — [`dontwakemeup/prompt-image-auditor`](https://huggingface.co/datasets/dontwakemeup/prompt-image-auditor) — and are loaded on demand at runtime via URLs stored in the database. **You do not need to download any images**; they stream directly from Hugging Face's CDN when the app runs.
-- A backup archive of all images is also available on Google Drive ([`<DRIVE_LINK>`](https://drive.google.com/drive/folders/1CivDBvpvf7Y0b8TSd4c7DWoPlfaopoel?usp=drive_link)) in case the Hugging Face dataset is unavailable.
+- A backup archive of all images is also available in this [Google Drive folder](https://drive.google.com/drive/folders/1CivDBvpvf7Y0b8TSd4c7DWoPlfaopoel?usp=drive_link) in case the Hugging Face dataset is unavailable.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A["DiffusionDB prompts and SD 1.x images"] --> B["Data and CLIP processing pipeline"]
+    C["FLUX.1 image generation"] --> B
+    B --> D["Hugging Face image dataset"]
+    B --> E["DuckDB analytical database"]
+    E --> F["FastAPI REST API"]
+    D --> F
+    F --> G["React and Vite frontend"]
+    G --> H["Linked charts and image gallery"]
+```
+
+The processing pipeline computes image-level and per-concept CLIP scores. DuckDB
+stores the analytical records, while generated images are hosted on Hugging Face.
+FastAPI exposes filtered and aggregated results to the React application.
+
+## Team Contributions
+
+- **Xiaoyu Zhong** (Git identities: `calista` and `DontWakeMeUp`) — generated
+  and prepared the image data; implemented CLIP-based image and concept scoring;
+  designed the DuckDB database; built the FastAPI backend and API contract; and
+  published generated images to Hugging Face for CDN-backed delivery.
+- **`yhuan331`** — implemented the React/Vite frontend and its interactive,
+  linked visualizations and image-gallery interactions.
+- Both contributors collaborated on research questions, integration, debugging,
+  and the final project presentation.
 
 ## Installation
 
@@ -35,6 +67,13 @@ No data preparation is required to run the app.
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+To run the backend test suite:
+
+```bash
+pip install -r requirements-dev.txt
+pytest
 ```
 
 ### Frontend
@@ -90,6 +129,8 @@ Charts are linked — selecting a point or category updates the image gallery so
 ```
 .
 ├── requirements.txt
+├── requirements-dev.txt
+├── tests/                            # backend API tests
 ├── server/
 │   ├── server.py                    # FastAPI app + REST endpoints
 │   └── alignment_auditor.duckdb     # pre-built database (CLIP scores + concepts)
