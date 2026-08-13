@@ -25,14 +25,22 @@ export function conceptScoreBarColor(s) {
   return s >= 0.28 ? '#1D9E75' : s >= 0.18 ? '#BA7517' : '#D85A30'
 }
 
-// ── CFG chart metadata (RQ3) ───────────────────────────────────
+// ── Concept category metadata (RQ2 + RQ3) ─────────────────────
 export const CFG_CAT_COLORS = {
-  adjective:  '#D85A30',
-  noun_chunk: '#378ADD',
+  content_noun:     '#378ADD',
+  style_modifier:   '#1D9E75',
+  artist_reference: '#D85A30',
+  quality_tag:      '#7F77DD',
+  other_adjective:  '#BA7517',
+  emotion:          '#D4537E',
 }
 export const CFG_CAT_LABELS = {
-  adjective:  'Adjective',
-  noun_chunk: 'Noun chunk',
+  content_noun:     'Content noun',
+  style_modifier:   'Style modifier',
+  artist_reference: 'Artist reference',
+  quality_tag:      'Quality tag',
+  other_adjective:  'Other adjective',
+  emotion:          'Emotion',
 }
 // Canonical CFG bin order from the backend
 export const CFG_BIN_ORDER = ['01-05','06-08','09-10','11-12','13-15','16+']
