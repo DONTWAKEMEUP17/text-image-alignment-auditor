@@ -87,7 +87,10 @@ export default function RQ12View({
               Worst-scoring concepts — {CFG_CAT_LABELS[selectedCat] ?? selectedCat}
             </div>
             {topFailures.map((f, i) => (
-              <div key={i} className="cbar-row">
+              <div key={i} className="cbar-row" style={{ cursor:'pointer' }}
+                onClick={() => onSelectImg(
+                  selectedImg?.image_name === f.image_name ? null : f
+                )}>
                 <span className="cbl" title={f.concept_text}>{f.concept_text}</span>
                 <div className="cbt">
                   <div className="cbf" style={{
@@ -118,6 +121,7 @@ export default function RQ12View({
         <ImageGallery
           model={model}
           brushBin={brushBin}
+          selectedCat={selectedCat}
           selectedImg={selectedImg}
           onSelect={onSelectImg}
         />
