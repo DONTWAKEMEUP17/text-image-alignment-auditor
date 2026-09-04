@@ -21,6 +21,12 @@ Thumbs.db
 # Build output
 dist/
 build/
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+__pycache__/
+*.py[cod]
 
 # Logs
 npm-debug.log*
@@ -30,3 +36,11 @@ yarn-error.log*
 node_modules/
 images/sd1x_images/
 images/flux_images_paired/
+
+# Local teaching materials
+MISSION.md
+NOTES.md
+RESOURCES.md
+lessons/
+reference/
+learning-records/
