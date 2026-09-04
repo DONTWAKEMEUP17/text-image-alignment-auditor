@@ -3,8 +3,9 @@
 # implement: uvicorn server:app --reload --port 8000
 # document: http://localhost:8000/docs
 # ============================================================
-from fastapi import FastAPI, Query
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import duckdb
 import os
@@ -25,10 +26,56 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get("DB_PATH", os.path.join(PROJECT_ROOT, "server", "alignment_auditor.duckdb"))
 IMG_DIR_SD = os.environ.get("IMG_DIR_SD", os.path.join(PROJECT_ROOT, "images", "sd1x_images"))
 IMG_DIR_FLUX = os.environ.get("IMG_DIR_FLUX", os.path.join(PROJECT_ROOT, "images", "flux_images_paired"))
+REQUIRED_TABLES = {"sd_images", "sd_concepts", "flux_images", "flux_concepts"}
+
+app.state.db_path = DB_PATH
 
 
-def get_db():
-    return duckdb.connect(DB_PATH, read_only=True)
+def get_db(request: Request):
+    """Provide one read-only connection for the lifetime of an API request."""
+    con = duckdb.connect(request.app.state.db_path, read_only=True)
+    try:
+        yield con
+    finally:
+        con.close()
+
+
+def database_is_ready(db_path: str) -> bool:
+    """Return whether the database is readable and has the expected schema."""
+    con = None
+    try:
+        con = duckdb.connect(db_path, read_only=True)
+        rows = con.execute(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'main'
+            """
+        ).fetchall()
+        available_tables = {row[0] for row in rows}
+        return REQUIRED_TABLES.issubset(available_tables)
+    except duckdb.Error:
+        return False
+    finally:
+        if con is not None:
+            con.close()
+
+
+@app.get("/health/live", tags=["health"])
+def health_live():
+    """Report whether the API process can answer requests."""
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["health"])
+def health_ready(request: Request):
+    """Report whether the API can query the expected analytics dataset."""
+    if not database_is_ready(request.app.state.db_path):
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "checks": {"database": "unavailable"}},
+        )
+    return {"status": "ready", "checks": {"database": "ok"}}
 
 
 # ============================================================
@@ -38,10 +85,10 @@ def get_db():
 def rq1_distribution(
     model: str = Query("sd1x", enum=["sd1x", "flux1"]),
     bin_width: float = Query(0.02, ge=0.005, le=0.1),
+    con=Depends(get_db),
 ):
     """Histogram data: clip_score binned for the chosen model."""
     table = "sd_images" if model == "sd1x" else "flux_images"
-    con = get_db()
     df = con.execute(f"""
         SELECT
             FLOOR(clip_score / {bin_width}) * {bin_width} AS bin_start,
@@ -50,7 +97,6 @@ def rq1_distribution(
         WHERE clip_score IS NOT NULL
         GROUP BY 1 ORDER BY 1
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
@@ -60,10 +106,10 @@ def rq1_distribution(
 @app.get("/api/rq2/by-category")
 def rq2_by_category(
     model: str = Query("sd1x", enum=["sd1x", "flux1"]),
+    con=Depends(get_db),
 ):
     """Box-plot data: per concept_category distribution."""
     table = "sd_concepts" if model == "sd1x" else "flux_concepts"
-    con = get_db()
     df = con.execute(f"""
         SELECT
             concept_category,
@@ -79,7 +125,6 @@ def rq2_by_category(
         GROUP BY concept_category
         ORDER BY mean
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
@@ -88,13 +133,13 @@ def rq2_top_failures(
     model: str = Query("sd1x", enum=["sd1x", "flux1"]),
     category: str = Query(None),
     limit: int = Query(20, ge=1, le=100),
+    con=Depends(get_db),
 ):
     """Lowest-scoring concepts — the ones the model fails at most."""
     is_sd = model == "sd1x"
     concepts_table = "sd_concepts" if is_sd else "flux_concepts"
     images_table = "sd_images" if is_sd else "flux_images"
     img_join_col = "image_name" if is_sd else "filename"
-    con = get_db()
     where = f"WHERE c.concept_category = '{category}'" if category else ""
     df = con.execute(f"""
         SELECT c.concept_text, c.concept_category, c.concept_clip_score, c.prompt_idx,
@@ -105,7 +150,6 @@ def rq2_top_failures(
         ORDER BY c.concept_clip_score ASC
         LIMIT {limit}
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
@@ -113,23 +157,20 @@ def rq2_top_failures(
 # RQ3: CFG vs alignment (SD 1.x only — has varied CFG)
 # ============================================================
 @app.get("/api/rq3/cfg-vs-score")
-def rq3_cfg_vs_score():
+def rq3_cfg_vs_score(con=Depends(get_db)):
     """Scatter / binned data: CFG value vs clip_score for SD 1.x."""
-    con = get_db()
     df = con.execute("""
         SELECT cfg, clip_score, concept_type
         FROM sd_images
         WHERE clip_score IS NOT NULL AND cfg IS NOT NULL
         ORDER BY cfg
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
 @app.get("/api/rq3/cfg-binned")
-def rq3_cfg_binned():
+def rq3_cfg_binned(con=Depends(get_db)):
     """Aggregated: mean clip_score per CFG bin."""
-    con = get_db()
     df = con.execute("""
         SELECT
             CASE
@@ -148,14 +189,12 @@ def rq3_cfg_binned():
         GROUP BY 1
         ORDER BY MIN(cfg)
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
 @app.get("/api/rq3/cfg-by-concept")
-def rq3_cfg_by_concept():
+def rq3_cfg_by_concept(con=Depends(get_db)):
     """CFG bin × concept_category → mean alignment (for heatmap)."""
-    con = get_db()
     df = con.execute("""
         SELECT
             CASE
@@ -174,7 +213,6 @@ def rq3_cfg_by_concept():
         GROUP BY 1, 2
         ORDER BY MIN(i.cfg), c.concept_category
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
@@ -182,9 +220,8 @@ def rq3_cfg_by_concept():
 # RQ4: SD vs FLUX cross-model comparison
 # ============================================================
 @app.get("/api/rq4/paired-summary")
-def rq4_paired_summary():
+def rq4_paired_summary(con=Depends(get_db)):
     """Aggregate paired comparison: SD vs FLUX mean scores."""
-    con = get_db()
     df = con.execute("""
         WITH paired AS (
             SELECT
@@ -202,14 +239,12 @@ def rq4_paired_summary():
             AVG(flux_score - sd_score) AS mean_delta
         FROM paired
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
 @app.get("/api/rq4/paired-by-category")
-def rq4_paired_by_category():
+def rq4_paired_by_category(con=Depends(get_db)):
     """Per concept_category: SD vs FLUX mean scores."""
-    con = get_db()
     df = con.execute("""
         SELECT
             concept_category,
@@ -224,14 +259,15 @@ def rq4_paired_by_category():
         GROUP BY concept_category, model
         ORDER BY concept_category, model
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
 @app.get("/api/rq4/paired-scatter")
-def rq4_paired_scatter(limit: int = Query(500, ge=1, le=3000)):
+def rq4_paired_scatter(
+    limit: int = Query(500, ge=1, le=3000),
+    con=Depends(get_db),
+):
     """Scatter data: each point = one prompt, x=SD score, y=FLUX score."""
-    con = get_db()
     df = con.execute(f"""
         SELECT
             s.prompt,
@@ -247,7 +283,6 @@ def rq4_paired_scatter(limit: int = Query(500, ge=1, le=3000)):
         ORDER BY ABS(f.clip_score - s.clip_score) DESC
         LIMIT {limit}
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
@@ -258,6 +293,7 @@ def rq4_paired_scatter(limit: int = Query(500, ge=1, le=3000)):
 def image_concepts(
     image_id: str,
     model: str = Query("sd1x", enum=["sd1x", "flux1"]),
+    con=Depends(get_db),
 ):
     """Per-concept CLIP scores for a single image."""
     if model == "sd1x":
@@ -266,14 +302,12 @@ def image_concepts(
     else:
         table = "flux_concepts"
         col = "image_name"  # flux_concepts uses image_name, not filename
-    con = get_db()
     df = con.execute(f"""
         SELECT concept_text, concept_category, concept_clip_score
         FROM {table}
         WHERE {col} = ?
         ORDER BY concept_clip_score ASC
     """, [image_id]).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
@@ -288,6 +322,7 @@ def list_images(
     order: str = Query("asc", enum=["asc", "desc"]),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    con=Depends(get_db),
 ):
     """Paginated image list with filters."""
     is_sd = model == "sd1x"
@@ -311,14 +346,12 @@ def list_images(
         """)
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-    con = get_db()
     df = con.execute(f"""
         SELECT * FROM {table}
         {where}
         ORDER BY {sort} {order}
         LIMIT {limit} OFFSET {offset}
     """).fetchdf()
-    con.close()
     return df.to_dict(orient="records")
 
 
@@ -326,14 +359,12 @@ def list_images(
 # Stats / meta
 # ============================================================
 @app.get("/api/stats")
-def stats():
+def stats(con=Depends(get_db)):
     """Overall dataset stats."""
-    con = get_db()
     result = {}
     for table in ["sd_images", "sd_concepts", "flux_images", "flux_concepts"]:
         count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         result[table] = count
-    con.close()
     return result
 
 
@@ -342,4 +373,3 @@ def stats():
 # ============================================================
 # app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
 # app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")
-
