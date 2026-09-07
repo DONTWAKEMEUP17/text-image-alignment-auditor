@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import duckdb
 import os
+from typing import Literal
 
 
 
@@ -27,6 +28,9 @@ DB_PATH = os.environ.get("DB_PATH", os.path.join(PROJECT_ROOT, "server", "alignm
 IMG_DIR_SD = os.environ.get("IMG_DIR_SD", os.path.join(PROJECT_ROOT, "images", "sd1x_images"))
 IMG_DIR_FLUX = os.environ.get("IMG_DIR_FLUX", os.path.join(PROJECT_ROOT, "images", "flux_images_paired"))
 REQUIRED_TABLES = {"sd_images", "sd_concepts", "flux_images", "flux_concepts"}
+ModelName = Literal["sd1x", "flux1"]
+SortField = Literal["clip_score", "cfg"]
+SortOrder = Literal["asc", "desc"]
 
 app.state.db_path = DB_PATH
 
@@ -90,7 +94,7 @@ def health_ready(request: Request):
 # ============================================================
 @app.get("/api/rq1/distribution")
 def rq1_distribution(
-    model: str = Query("sd1x", enum=["sd1x", "flux1"]),
+    model: ModelName = "sd1x",
     bin_width: float = Query(0.02, ge=0.005, le=0.1),
     con=Depends(get_db),
 ):
@@ -98,12 +102,12 @@ def rq1_distribution(
     table = "sd_images" if model == "sd1x" else "flux_images"
     return fetch_records(con, f"""
         SELECT
-            FLOOR(clip_score / {bin_width}) * {bin_width} AS bin_start,
+            FLOOR(clip_score / ?) * ? AS bin_start,
             COUNT(*) AS count
         FROM {table}
         WHERE clip_score IS NOT NULL
         GROUP BY 1 ORDER BY 1
-    """)
+    """, [bin_width, bin_width])
 
 
 # ============================================================
@@ -111,7 +115,7 @@ def rq1_distribution(
 # ============================================================
 @app.get("/api/rq2/by-category")
 def rq2_by_category(
-    model: str = Query("sd1x", enum=["sd1x", "flux1"]),
+    model: ModelName = "sd1x",
     con=Depends(get_db),
 ):
     """Box-plot data: per concept_category distribution."""
@@ -135,7 +139,7 @@ def rq2_by_category(
 
 @app.get("/api/rq2/top-failures")
 def rq2_top_failures(
-    model: str = Query("sd1x", enum=["sd1x", "flux1"]),
+    model: ModelName = "sd1x",
     category: str = Query(None),
     limit: int = Query(20, ge=1, le=100),
     con=Depends(get_db),
@@ -145,7 +149,12 @@ def rq2_top_failures(
     concepts_table = "sd_concepts" if is_sd else "flux_concepts"
     images_table = "sd_images" if is_sd else "flux_images"
     img_join_col = "image_name" if is_sd else "filename"
-    where = f"WHERE c.concept_category = '{category}'" if category else ""
+    parameters = []
+    where = ""
+    if category:
+        where = "WHERE c.concept_category = ?"
+        parameters.append(category)
+    parameters.append(limit)
     return fetch_records(con, f"""
         SELECT c.concept_text, c.concept_category, c.concept_clip_score, c.prompt_idx,
                c.image_name, i.image_url, i.prompt
@@ -153,8 +162,8 @@ def rq2_top_failures(
         JOIN {images_table} i ON c.image_name = i.{img_join_col}
         {where}
         ORDER BY c.concept_clip_score ASC
-        LIMIT {limit}
-    """)
+        LIMIT ?
+    """, parameters)
 
 
 # ============================================================
@@ -267,7 +276,7 @@ def rq4_paired_scatter(
     con=Depends(get_db),
 ):
     """Scatter data: each point = one prompt, x=SD score, y=FLUX score."""
-    return fetch_records(con, f"""
+    return fetch_records(con, """
         SELECT
             s.prompt,
             s.clip_score AS sd_score,
@@ -280,8 +289,8 @@ def rq4_paired_scatter(
         FROM sd_images s
         JOIN flux_images f ON s.prompt = f.prompt
         ORDER BY ABS(f.clip_score - s.clip_score) DESC
-        LIMIT {limit}
-    """)
+        LIMIT ?
+    """, [limit])
 
 
 # ============================================================
@@ -290,7 +299,7 @@ def rq4_paired_scatter(
 @app.get("/api/image/{image_id}/concepts")
 def image_concepts(
     image_id: str,
-    model: str = Query("sd1x", enum=["sd1x", "flux1"]),
+    model: ModelName = "sd1x",
     con=Depends(get_db),
 ):
     """Per-concept CLIP scores for a single image."""
@@ -310,13 +319,13 @@ def image_concepts(
 
 @app.get("/api/images")
 def list_images(
-    model: str = Query("sd1x", enum=["sd1x", "flux1"]),
+    model: ModelName = "sd1x",
     concept_type: str = Query(None),
     concept_category: str = Query(None),
     min_score: float = Query(None),
     max_score: float = Query(None),
-    sort: str = Query("clip_score", enum=["clip_score", "cfg"]),
-    order: str = Query("asc", enum=["asc", "desc"]),
+    sort: SortField = "clip_score",
+    order: SortOrder = "asc",
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     con=Depends(get_db),
@@ -328,27 +337,33 @@ def list_images(
     concepts_table = "sd_concepts" if is_sd else "flux_concepts"
 
     conditions = []
+    parameters = []
     if concept_type:
-        conditions.append(f"concept_type = '{concept_type}'")
+        conditions.append("concept_type = ?")
+        parameters.append(concept_type)
     if min_score is not None:
-        conditions.append(f"clip_score >= {min_score}")
+        conditions.append("clip_score >= ?")
+        parameters.append(min_score)
     if max_score is not None:
-        conditions.append(f"clip_score <= {max_score}")
+        conditions.append("clip_score <= ?")
+        parameters.append(max_score)
     if concept_category:
         conditions.append(f"""
             {img_key} IN (
                 SELECT DISTINCT image_name FROM {concepts_table}
-                WHERE concept_category = '{concept_category}'
+                WHERE concept_category = ?
             )
         """)
+        parameters.append(concept_category)
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    parameters.extend([limit, offset])
 
     return fetch_records(con, f"""
         SELECT * FROM {table}
         {where}
         ORDER BY {sort} {order}
-        LIMIT {limit} OFFSET {offset}
-    """)
+        LIMIT ? OFFSET ?
+    """, parameters)
 
 
 # ============================================================
