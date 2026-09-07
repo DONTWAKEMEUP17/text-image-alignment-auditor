@@ -40,6 +40,13 @@ def get_db(request: Request):
         con.close()
 
 
+def fetch_records(con, query: str, parameters=None):
+    """Execute a query and return JSON-ready records without requiring Pandas."""
+    cursor = con.execute(query, parameters or [])
+    columns = [description[0] for description in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
 def database_is_ready(db_path: str) -> bool:
     """Return whether the database is readable and has the expected schema."""
     con = None
@@ -89,15 +96,14 @@ def rq1_distribution(
 ):
     """Histogram data: clip_score binned for the chosen model."""
     table = "sd_images" if model == "sd1x" else "flux_images"
-    df = con.execute(f"""
+    return fetch_records(con, f"""
         SELECT
             FLOOR(clip_score / {bin_width}) * {bin_width} AS bin_start,
             COUNT(*) AS count
         FROM {table}
         WHERE clip_score IS NOT NULL
         GROUP BY 1 ORDER BY 1
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 # ============================================================
@@ -110,7 +116,7 @@ def rq2_by_category(
 ):
     """Box-plot data: per concept_category distribution."""
     table = "sd_concepts" if model == "sd1x" else "flux_concepts"
-    df = con.execute(f"""
+    return fetch_records(con, f"""
         SELECT
             concept_category,
             COUNT(*) AS n,
@@ -124,8 +130,7 @@ def rq2_by_category(
         WHERE concept_clip_score IS NOT NULL
         GROUP BY concept_category
         ORDER BY mean
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 @app.get("/api/rq2/top-failures")
@@ -141,7 +146,7 @@ def rq2_top_failures(
     images_table = "sd_images" if is_sd else "flux_images"
     img_join_col = "image_name" if is_sd else "filename"
     where = f"WHERE c.concept_category = '{category}'" if category else ""
-    df = con.execute(f"""
+    return fetch_records(con, f"""
         SELECT c.concept_text, c.concept_category, c.concept_clip_score, c.prompt_idx,
                c.image_name, i.image_url, i.prompt
         FROM {concepts_table} c
@@ -149,8 +154,7 @@ def rq2_top_failures(
         {where}
         ORDER BY c.concept_clip_score ASC
         LIMIT {limit}
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 # ============================================================
@@ -159,19 +163,18 @@ def rq2_top_failures(
 @app.get("/api/rq3/cfg-vs-score")
 def rq3_cfg_vs_score(con=Depends(get_db)):
     """Scatter / binned data: CFG value vs clip_score for SD 1.x."""
-    df = con.execute("""
+    return fetch_records(con, """
         SELECT cfg, clip_score, concept_type
         FROM sd_images
         WHERE clip_score IS NOT NULL AND cfg IS NOT NULL
         ORDER BY cfg
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 @app.get("/api/rq3/cfg-binned")
 def rq3_cfg_binned(con=Depends(get_db)):
     """Aggregated: mean clip_score per CFG bin."""
-    df = con.execute("""
+    return fetch_records(con, """
         SELECT
             CASE
                 WHEN cfg <= 5 THEN '01-05'
@@ -188,14 +191,13 @@ def rq3_cfg_binned(con=Depends(get_db)):
         WHERE clip_score IS NOT NULL AND cfg IS NOT NULL
         GROUP BY 1
         ORDER BY MIN(cfg)
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 @app.get("/api/rq3/cfg-by-concept")
 def rq3_cfg_by_concept(con=Depends(get_db)):
     """CFG bin × concept_category → mean alignment (for heatmap)."""
-    df = con.execute("""
+    return fetch_records(con, """
         SELECT
             CASE
                 WHEN i.cfg <= 5 THEN '01-05'
@@ -212,8 +214,7 @@ def rq3_cfg_by_concept(con=Depends(get_db)):
         JOIN sd_images i ON c.image_name = i.image_name
         GROUP BY 1, 2
         ORDER BY MIN(i.cfg), c.concept_category
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 # ============================================================
@@ -222,7 +223,7 @@ def rq3_cfg_by_concept(con=Depends(get_db)):
 @app.get("/api/rq4/paired-summary")
 def rq4_paired_summary(con=Depends(get_db)):
     """Aggregate paired comparison: SD vs FLUX mean scores."""
-    df = con.execute("""
+    return fetch_records(con, """
         WITH paired AS (
             SELECT
                 s.prompt,
@@ -238,14 +239,13 @@ def rq4_paired_summary(con=Depends(get_db)):
             AVG(flux_score) AS flux_mean,
             AVG(flux_score - sd_score) AS mean_delta
         FROM paired
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 @app.get("/api/rq4/paired-by-category")
 def rq4_paired_by_category(con=Depends(get_db)):
     """Per concept_category: SD vs FLUX mean scores."""
-    df = con.execute("""
+    return fetch_records(con, """
         SELECT
             concept_category,
             model,
@@ -258,8 +258,7 @@ def rq4_paired_by_category(con=Depends(get_db)):
         ) combined
         GROUP BY concept_category, model
         ORDER BY concept_category, model
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 @app.get("/api/rq4/paired-scatter")
@@ -268,7 +267,7 @@ def rq4_paired_scatter(
     con=Depends(get_db),
 ):
     """Scatter data: each point = one prompt, x=SD score, y=FLUX score."""
-    df = con.execute(f"""
+    return fetch_records(con, f"""
         SELECT
             s.prompt,
             s.clip_score AS sd_score,
@@ -282,8 +281,7 @@ def rq4_paired_scatter(
         JOIN flux_images f ON s.prompt = f.prompt
         ORDER BY ABS(f.clip_score - s.clip_score) DESC
         LIMIT {limit}
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 # ============================================================
@@ -302,13 +300,12 @@ def image_concepts(
     else:
         table = "flux_concepts"
         col = "image_name"  # flux_concepts uses image_name, not filename
-    df = con.execute(f"""
+    return fetch_records(con, f"""
         SELECT concept_text, concept_category, concept_clip_score
         FROM {table}
         WHERE {col} = ?
         ORDER BY concept_clip_score ASC
-    """, [image_id]).fetchdf()
-    return df.to_dict(orient="records")
+    """, [image_id])
 
 
 @app.get("/api/images")
@@ -346,13 +343,12 @@ def list_images(
         """)
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-    df = con.execute(f"""
+    return fetch_records(con, f"""
         SELECT * FROM {table}
         {where}
         ORDER BY {sort} {order}
         LIMIT {limit} OFFSET {offset}
-    """).fetchdf()
-    return df.to_dict(orient="records")
+    """)
 
 
 # ============================================================
