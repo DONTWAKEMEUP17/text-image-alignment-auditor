@@ -2,7 +2,6 @@ import json
 import logging
 from datetime import datetime, timezone
 
-
 logger = logging.getLogger("alignment_auditor")
 logger.setLevel(logging.INFO)
 

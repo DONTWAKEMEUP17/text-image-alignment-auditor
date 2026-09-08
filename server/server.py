@@ -3,20 +3,18 @@
 # implement: uvicorn server:app --reload --port 8000
 # document: http://localhost:8000/docs
 # ============================================================
-from fastapi import Depends, FastAPI, Query, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-import duckdb
 import logging
 import os
 from time import perf_counter
 from typing import Literal
 from uuid import uuid4
 
+import duckdb
+from fastapi import Depends, FastAPI, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
 from server.observability import log_event
-
-
 
 app = FastAPI(title="Alignment Auditor API", version="1.0")
 
@@ -29,9 +27,15 @@ app.add_middleware(
 
 # --- DuckDB ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.environ.get("DB_PATH", os.path.join(PROJECT_ROOT, "server", "alignment_auditor.duckdb"))
-IMG_DIR_SD = os.environ.get("IMG_DIR_SD", os.path.join(PROJECT_ROOT, "images", "sd1x_images"))
-IMG_DIR_FLUX = os.environ.get("IMG_DIR_FLUX", os.path.join(PROJECT_ROOT, "images", "flux_images_paired"))
+DB_PATH = os.environ.get(
+    "DB_PATH", os.path.join(PROJECT_ROOT, "server", "alignment_auditor.duckdb")
+)
+IMG_DIR_SD = os.environ.get(
+    "IMG_DIR_SD", os.path.join(PROJECT_ROOT, "images", "sd1x_images")
+)
+IMG_DIR_FLUX = os.environ.get(
+    "IMG_DIR_FLUX", os.path.join(PROJECT_ROOT, "images", "flux_images_paired")
+)
 REQUIRED_TABLES = {"sd_images", "sd_concepts", "flux_images", "flux_concepts"}
 ModelName = Literal["sd1x", "flux1"]
 SortField = Literal["clip_score", "cfg"]
@@ -130,7 +134,10 @@ def fetch_records(con, query: str, parameters=None):
     """Execute a query and return JSON-ready records without requiring Pandas."""
     cursor = con.execute(query, parameters or [])
     columns = [description[0] for description in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    return [
+        {column: row[index] for index, column in enumerate(columns)}
+        for row in cursor.fetchall()
+    ]
 
 
 def require_ready_database(db_path: str):
