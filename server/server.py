@@ -8,8 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import duckdb
+import logging
 import os
+from time import perf_counter
 from typing import Literal
+from uuid import uuid4
+
+from server.observability import log_event
 
 
 
@@ -35,9 +40,86 @@ SortOrder = Literal["asc", "desc"]
 app.state.db_path = DB_PATH
 
 
+class DatabaseUnavailableError(RuntimeError):
+    """Raised when the configured analytics database cannot serve requests."""
+
+
+@app.middleware("http")
+async def add_request_context(request: Request, call_next):
+    request_id = str(uuid4())
+    request.state.request_id = request_id
+    started_at = perf_counter()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    log_event(
+        logging.INFO,
+        "request_completed",
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=round((perf_counter() - started_at) * 1000, 2),
+    )
+    return response
+
+
+def error_response(request: Request, status_code: int, code: str, message: str):
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "request_id": request.state.request_id,
+            }
+        },
+    )
+
+
+@app.exception_handler(DatabaseUnavailableError)
+async def handle_database_unavailable(request: Request, exc: DatabaseUnavailableError):
+    log_event(
+        logging.ERROR,
+        "database_unavailable",
+        request_id=request.state.request_id,
+        method=request.method,
+        path=request.url.path,
+        exception_type=type(exc.__cause__ or exc).__name__,
+        exception_message=str(exc.__cause__ or exc),
+    )
+    return error_response(
+        request,
+        503,
+        "database_unavailable",
+        "Analytics data is temporarily unavailable.",
+    )
+
+
+@app.exception_handler(duckdb.Error)
+async def handle_database_query_error(request: Request, exc: duckdb.Error):
+    log_event(
+        logging.ERROR,
+        "database_query_failed",
+        request_id=request.state.request_id,
+        method=request.method,
+        path=request.url.path,
+        exception_type=type(exc).__name__,
+        exception_message=str(exc),
+    )
+    return error_response(
+        request,
+        500,
+        "database_query_failed",
+        "The analytics request could not be completed.",
+    )
+
+
 def get_db(request: Request):
     """Provide one read-only connection for the lifetime of an API request."""
-    con = duckdb.connect(request.app.state.db_path, read_only=True)
+    try:
+        con = duckdb.connect(request.app.state.db_path, read_only=True)
+    except duckdb.Error as exc:
+        raise DatabaseUnavailableError("Failed to open analytics database") from exc
     try:
         yield con
     finally:
@@ -51,8 +133,8 @@ def fetch_records(con, query: str, parameters=None):
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
-def database_is_ready(db_path: str) -> bool:
-    """Return whether the database is readable and has the expected schema."""
+def require_ready_database(db_path: str):
+    """Raise when the database is unreadable or lacks the expected schema."""
     con = None
     try:
         con = duckdb.connect(db_path, read_only=True)
@@ -64,9 +146,14 @@ def database_is_ready(db_path: str) -> bool:
             """
         ).fetchall()
         available_tables = {row[0] for row in rows}
-        return REQUIRED_TABLES.issubset(available_tables)
-    except duckdb.Error:
-        return False
+        missing_tables = REQUIRED_TABLES - available_tables
+        if missing_tables:
+            missing = ", ".join(sorted(missing_tables))
+            raise DatabaseUnavailableError(f"Missing required tables: {missing}")
+    except DatabaseUnavailableError:
+        raise
+    except duckdb.Error as exc:
+        raise DatabaseUnavailableError("Failed readiness query") from exc
     finally:
         if con is not None:
             con.close()
@@ -81,11 +168,7 @@ def health_live():
 @app.get("/health/ready", tags=["health"])
 def health_ready(request: Request):
     """Report whether the API can query the expected analytics dataset."""
-    if not database_is_ready(request.app.state.db_path):
-        return JSONResponse(
-            status_code=503,
-            content={"status": "not_ready", "checks": {"database": "unavailable"}},
-        )
+    require_ready_database(request.app.state.db_path)
     return {"status": "ready", "checks": {"database": "ok"}}
 
 

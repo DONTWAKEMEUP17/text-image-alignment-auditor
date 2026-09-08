@@ -1,18 +1,6 @@
 from pathlib import Path
 
 import duckdb
-import pytest
-
-from server.server import app
-
-
-@pytest.fixture
-def database_path():
-    original_path = app.state.db_path
-    try:
-        yield app.state
-    finally:
-        app.state.db_path = original_path
 
 
 def test_liveness_does_not_require_database(client, database_path, tmp_path: Path):
@@ -40,8 +28,11 @@ def test_readiness_fails_when_database_is_missing(
 
     assert response.status_code == 503
     assert response.json() == {
-        "status": "not_ready",
-        "checks": {"database": "unavailable"},
+        "error": {
+            "code": "database_unavailable",
+            "message": "Analytics data is temporarily unavailable.",
+            "request_id": response.headers["X-Request-ID"],
+        }
     }
 
 
@@ -58,6 +49,9 @@ def test_readiness_fails_when_database_has_wrong_schema(
 
     assert response.status_code == 503
     assert response.json() == {
-        "status": "not_ready",
-        "checks": {"database": "unavailable"},
+        "error": {
+            "code": "database_unavailable",
+            "message": "Analytics data is temporarily unavailable.",
+            "request_id": response.headers["X-Request-ID"],
+        }
     }
