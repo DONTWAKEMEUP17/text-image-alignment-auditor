@@ -271,9 +271,7 @@ Dataset summary.
 
 ## Image URLs
 
-Images are no longer served as static files. Each image row returned by `GET /api/images` contains an `image_url` field — use it directly as the `<img src>`.
-
-> **Note:** `GET /api/rq4/paired-scatter` currently returns `sd_image` / `flux_image` as filenames only. To show thumbnails in the RQ4 scatter panel, update that endpoint to also return `sd_image_url` / `flux_image_url`.
+Images are no longer served as static files. Each image row returned by `GET /api/images` contains an `image_url` field — use it directly as the `<img src>`. The paired-scatter response also includes `sd_image_url` and `flux_image_url` for side-by-side thumbnails.
 
 ---
 

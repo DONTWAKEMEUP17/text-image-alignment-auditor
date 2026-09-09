@@ -1,5 +1,12 @@
 # Dependencies
 node_modules/
+.venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 
 # Environment variables
 .env
