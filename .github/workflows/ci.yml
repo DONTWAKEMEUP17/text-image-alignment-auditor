@@ -31,7 +31,7 @@ jobs:
         run: ruff check --output-format=github server tests
 
       - name: Test Python with coverage
-        run: pytest --cov=server --cov-report=term-missing --cov-report=xml
+        run: python -m pytest --cov=server --cov-report=term-missing --cov-report=xml
 
   frontend:
     name: Frontend production build
