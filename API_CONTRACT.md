@@ -271,29 +271,7 @@ Dataset summary.
 
 ## Image URLs
 
-Images are no longer served as static files. Each image row returned by `GET /api/images` contains an `image_url` field — use it directly as the `<img src>`.
-
-> **Note:** `GET /api/rq4/paired-scatter` currently returns `sd_image` / `flux_image` as filenames only. To show thumbnails in the RQ4 scatter panel, update that endpoint to also return `sd_image_url` / `flux_image_url`.
-
-### `GET /api/pairedScatter`
-
-Returns every prompt shared by the SD 1.x and FLUX.1 tables, including both
-CLIP scores and CDN-backed image URLs. This endpoint is retained for the RQ4
-frontend integration.
-
-**Response:**
-
-```json
-[
-  {
-    "prompt": "a dog driving a tank...",
-    "sd_score": 0.3215,
-    "flux_score": 0.3102,
-    "sd_image_url": "https://...",
-    "flux_image_url": "https://..."
-  }
-]
-```
+Images are no longer served as static files. Each image row returned by `GET /api/images` contains an `image_url` field — use it directly as the `<img src>`. The paired-scatter response also includes `sd_image_url` and `flux_image_url` for side-by-side thumbnails.
 
 ---
 
