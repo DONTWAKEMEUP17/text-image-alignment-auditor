@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: "8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    init: true

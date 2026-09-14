@@ -118,6 +118,28 @@ With both servers running, open `http://localhost:5173` and walk through the fou
 
 Charts are linked — selecting a point or category updates the image gallery so you can move from an aggregate trend down to the individual images driving it.
 
+## Run the production container
+
+The production image builds the React frontend in a Node stage, then copies only
+the compiled assets into a non-root Python runtime that serves both the UI and API.
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8000`. The API documentation remains available at
+`http://localhost:8000/docs`, and readiness is reported at
+`http://localhost:8000/health/ready`.
+
+Stop the service with:
+
+```bash
+docker compose down
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for the deployment shape,
+technical trade-offs, and measured production baseline.
+
 ### Optional environment variables
 
 | Variable  | Default                             | Description                  |

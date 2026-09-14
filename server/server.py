@@ -13,6 +13,7 @@ import duckdb
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from server.observability import log_event
 
@@ -35,6 +36,9 @@ IMG_DIR_SD = os.environ.get(
 )
 IMG_DIR_FLUX = os.environ.get(
     "IMG_DIR_FLUX", os.path.join(PROJECT_ROOT, "images", "flux_images_paired")
+)
+FRONTEND_DIST = os.environ.get(
+    "FRONTEND_DIST", os.path.join(PROJECT_ROOT, "client", "dist")
 )
 REQUIRED_TABLES = {"sd_images", "sd_concepts", "flux_images", "flux_concepts"}
 ModelName = Literal["sd1x", "flux1"]
@@ -470,7 +474,10 @@ def stats(con=Depends(get_db)):
 
 
 # ============================================================
-# Static files — serve images
+# Static files — serve the production frontend after API routes
 # ============================================================
-# app.mount("/images/sd", StaticFiles(directory=IMG_DIR_SD), name="sd_images")
-# app.mount("/images/flux", StaticFiles(directory=IMG_DIR_FLUX), name="flux_images")
+app.mount(
+    "/",
+    StaticFiles(directory=FRONTEND_DIST, html=True, check_dir=False),
+    name="frontend",
+)
