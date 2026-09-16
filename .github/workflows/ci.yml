@@ -58,3 +58,15 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  image:
+    name: Production Docker image build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build production image
+        run: docker build --tag alignment-auditor:ci .
