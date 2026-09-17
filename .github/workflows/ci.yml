@@ -70,3 +70,6 @@ jobs:
 
       - name: Build production image
         run: docker build --tag alignment-auditor:ci .
+
+      - name: Smoke-test running container
+        run: bash scripts/smoke_container.sh alignment-auditor:ci
