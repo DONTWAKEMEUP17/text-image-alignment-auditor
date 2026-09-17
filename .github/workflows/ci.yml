@@ -33,6 +33,25 @@ jobs:
       - name: Test Python with coverage
         run: python -m pytest --cov=server --cov-report=term-missing --cov-report=xml
 
+  security:
+    name: Audit production Python dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up runtime Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Audit direct and transitive production packages
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: requirements.txt
+
   frontend:
     name: Frontend production build
     runs-on: ubuntu-latest

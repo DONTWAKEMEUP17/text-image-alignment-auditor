@@ -1,4 +1,3 @@
-fastapi==0.104.1
+fastapi==0.141.1
 uvicorn==0.24.0
 duckdb==1.4.4
-python-multipart==0.0.6
