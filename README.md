@@ -144,6 +144,21 @@ docker compose down
 See [`docs/architecture.md`](docs/architecture.md) for the deployment shape,
 technical trade-offs, and measured production baseline.
 
+### Measure local API latency
+
+With the container running and a Python 3.10+ development environment
+(`pip install -r requirements-dev.txt`), run:
+
+```bash
+python scripts/benchmark_api.py --base-url http://localhost:8000 \
+  --path /api/stats --requests 1000 --concurrency 5 --warmup 20
+```
+
+The JSON output reports successful requests, failures, p50/p95 latency, and
+throughput. The command exits nonzero if any measured request fails. Run it
+against your own local instance, not an unrelated public service. The exact
+container-based method and measured baseline are in `docs/architecture.md`.
+
 ### Optional environment variables
 
 | Variable  | Default                             | Description                  |
