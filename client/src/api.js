@@ -19,7 +19,8 @@ export const api = {
   byCategory: model =>
     get(`/api/rq2/by-category?model=${toApi(model)}`),
 
-  // Returns [{concept_text, concept_category, concept_clip_score, prompt_idx}]
+  // Returns [{concept_text, concept_category, concept_clip_score, prompt_idx,
+  //           image_name, image_url, prompt}]
   topFailures: (model, category, limit = 20) => {
     let u = `/api/rq2/top-failures?model=${toApi(model)}&limit=${limit}`
     if (category) u += `&category=${encodeURIComponent(category)}`
@@ -40,7 +41,8 @@ export const api = {
   // Returns [{concept_category, model, n, mean_score}]
   pairedByCategory: () => get('/api/rq4/paired-by-category'),
 
-  // Returns [{prompt, sd_score, flux_score, concept_type, sd_image, flux_image}]
+  // Returns [{prompt, sd_score, flux_score, concept_type, sd_image, flux_image,
+  //           sd_image_url, flux_image_url}]
   pairedScatter: (limit = 500) => get(`/api/rq4/paired-scatter?limit=${limit}`),
 
   // ── Images ────────────────────────────────────────────────────
@@ -50,7 +52,7 @@ export const api = {
     return get(`/api/images?${p}`)
   },
 
-  // Returns [{concept_text, concept_category, concept_pos, concept_clip_score}]
+  // Returns [{concept_text, concept_category, concept_clip_score}]
   imageConcepts: (imageId, model) =>
     get(`/api/image/${encodeURIComponent(imageId)}/concepts?model=${toApi(model)}`),
 
