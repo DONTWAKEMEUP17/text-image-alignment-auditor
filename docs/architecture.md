@@ -67,3 +67,18 @@ Measured on 2026-09-13 using Docker Desktop 29.4.2 on Apple Silicon:
 
 These are environment-specific engineering measurements, not claims about
 public users, production uptime, or sustained load capacity.
+
+## Latest local verification
+
+Measured on 2026-09-17 against the bundled DuckDB dataset:
+
+| Signal | Result |
+| --- | ---: |
+| Backend tests | 40 passed |
+| UI–API contract test cases | 18 passed |
+| Python statement coverage | 99.39% |
+| Frontend production build | passed |
+
+The contract tests check the API fields, numeric types, and selected enum values
+that the React views consume. They do not replace a browser test of rendering,
+interaction, or external image availability.
