@@ -76,6 +76,10 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
+CI also audits `requirements.txt` for known vulnerabilities in both direct and
+transitive production Python packages. This does not include the separate
+frontend build-tool dependency tree or replace application security testing.
+
 ### Frontend
 
 ```bash
