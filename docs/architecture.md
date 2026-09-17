@@ -82,3 +82,43 @@ Measured on 2026-09-17 against the bundled DuckDB dataset:
 The contract tests check the API fields, numeric types, and selected enum values
 that the React views consume. They do not replace a browser test of rendering,
 interaction, or external image availability.
+
+## Local API latency baseline
+
+Measured on 2026-09-17 with Docker Desktop 29.4.2 on Apple Silicon
+(macOS 26.6.2). The production image was
+`sha256:e30c223c8429ec49089458f566e6c4008c06c2520496998745970feef9ade235`
+(74,157,003 bytes), running one Uvicorn worker with a read-only filesystem.
+The benchmark client used Python 3.11 and HTTPX 0.27.2 in a separate container
+sharing the app container's network namespace. The bundled DuckDB file was
+7,352,320 bytes; `/api/stats` reported 3,000 SD images, 34,178 SD concepts,
+2,699 FLUX images, and 30,191 FLUX concepts.
+
+| GET endpoint | Warm-up | Measured requests | Concurrent requests | p50 | p95 | Throughput | Failures |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/api/stats` | 20 | 1,000 | 5 | 4.89 ms | 7.63 ms | 974.47 req/s | 0 |
+| `/api/rq4/paired-scatter` | 10 | 200 | 5 | 37.85 ms | 48.96 ms | 126.02 req/s | 0 |
+
+`scripts/benchmark_api.py` measures client-observed time to receive the full
+JSON response. Its p95 is the nearest-rank 95th percentile of successful
+requests only; failures are counted separately and make the command fail.
+Throughput is all measured requests divided by wall-clock duration. These are
+short, local bursts, **not** sustained-capacity, internet-latency, or public
+uptime claims. A public deployment needs its own measurement.
+
+To reproduce the container-to-container method, build the image, start it,
+confirm `/health/ready`, then run the client in the same network namespace:
+
+```bash
+docker build --tag alignment-auditor:bench .
+docker run --detach --rm --name alignment-auditor-bench --read-only --tmpfs /tmp alignment-auditor:bench
+docker exec alignment-auditor-bench python -c 'import urllib.request; print(urllib.request.urlopen("http://127.0.0.1:8000/health/ready").status)'
+docker run --rm --network container:alignment-auditor-bench \
+  --mount "type=bind,src=$PWD,dst=/app,readonly" --workdir /app python:3.11-slim \
+  sh -c 'python -m pip install --quiet httpx==0.27.2 && python scripts/benchmark_api.py --base-url http://127.0.0.1:8000 --path /api/stats --requests 1000 --concurrency 5 --warmup 20'
+docker stop alignment-auditor-bench
+```
+
+Repeat the client command with `--path /api/rq4/paired-scatter --requests 200
+--warmup 10` for the second row. Always stop the temporary container when
+finished.
