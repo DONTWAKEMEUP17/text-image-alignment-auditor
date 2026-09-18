@@ -22,22 +22,33 @@ runtime contains Python, the FastAPI application, compiled static assets, and
 the 7 MB DuckDB database. The process runs as the unprivileged `app` user and
 supports a read-only root filesystem with `/tmp` mounted as temporary storage.
 
-## First public deployment (pending)
+## First public deployment
 
-The planned recruiter demo uses the repository's `render.yaml`: one Render Free
-Docker web service built from the root `Dockerfile`, tracking `main`. Render
-waits for GitHub CI checks before automatic deploys and probes
-`/health/ready` to decide whether the new instance can receive traffic.
-Neither the Blueprint file nor the local smoke test is evidence that a public
-deployment exists yet; record the URL, date, and external checks after launch.
+On 2026-09-18, Render showed a Live, Blueprint-managed **Free Docker** web
+service built from `main` at merge commit `f8d26de`. The public URL is
+<https://alignment-auditor.onrender.com/>. The following are point-in-time
+checks from outside Render, not an uptime or sustained-load measurement.
 
 | Public signal | Result |
 | --- | --- |
-| URL and first deployment date | Pending first deploy |
-| Browser check of RQ1–RQ4 and images | Pending first deploy |
-| `/health/ready` and `/api/stats` from outside Render | Pending first deploy |
+| First deploy | 2026-09-18; one successful deploy shown in Render |
+| Homepage and compiled JavaScript | HTTP 200; JS asset loaded |
+| `/health/ready` | HTTP 200; `database: ok` |
+| `/api/stats` | HTTP 200; 3,000 SD images, 34,178 SD concepts, 2,699 FLUX images, 30,191 FLUX concepts |
+| RQ1–RQ4 API samples | HTTP 200; nonempty expected data |
+| Browser check | RQ1/2 charts and image-to-concept drill-down, RQ3 charts, RQ4 scatter point-to-paired-image detail rendered |
+| External image | One Hugging Face image returned HTTP 206 with PNG signature |
+| Structured application logs | Missing on initial deployed commit; fix verified locally on this branch, pending redeploy |
 | Public p95, throughput, and failures | Not measured |
-| Deployment frequency and users | Not measured |
+| Deployment frequency and users | Not measured; one deploy is not a frequency trend |
+
+Render probes `/health/ready` and waits for passing CI checks before future
+automatic deploys. The initial live instance displayed Uvicorn access logs but
+not our JSON application events. A local-container reproduction confirmed the
+missing stdout handler; this branch routes JSON events to stdout, suppresses
+routine readiness log noise, and verifies an API event in the Docker smoke test.
+Recheck the Render log stream after this fix deploys before claiming structured
+logging works publicly.
 
 ## Initial trade-offs
 
@@ -97,14 +108,16 @@ public users, production uptime, or sustained load capacity.
 
 ## Latest local verification
 
-Measured on 2026-09-17 against the bundled DuckDB dataset:
+Measured on 2026-09-18 against the bundled DuckDB dataset on the logging-fix
+branch (not yet deployed):
 
 | Signal | Result |
 | --- | ---: |
-| Backend tests | 40 passed |
+| Backend tests | 44 passed |
 | UI–API contract test cases | 18 passed |
-| Python statement coverage | 99.39% |
+| Python statement coverage | 99.42% |
 | Frontend production build | passed |
+| Docker smoke test including JSON request log | passed |
 
 The contract tests check the API fields, numeric types, and selected enum values
 that the React views consume. They do not replace a browser test of rendering,
