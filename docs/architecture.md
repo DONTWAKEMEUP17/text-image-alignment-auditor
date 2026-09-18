@@ -22,6 +22,23 @@ runtime contains Python, the FastAPI application, compiled static assets, and
 the 7 MB DuckDB database. The process runs as the unprivileged `app` user and
 supports a read-only root filesystem with `/tmp` mounted as temporary storage.
 
+## First public deployment (pending)
+
+The planned recruiter demo uses the repository's `render.yaml`: one Render Free
+Docker web service built from the root `Dockerfile`, tracking `main`. Render
+waits for GitHub CI checks before automatic deploys and probes
+`/health/ready` to decide whether the new instance can receive traffic.
+Neither the Blueprint file nor the local smoke test is evidence that a public
+deployment exists yet; record the URL, date, and external checks after launch.
+
+| Public signal | Result |
+| --- | --- |
+| URL and first deployment date | Pending first deploy |
+| Browser check of RQ1–RQ4 and images | Pending first deploy |
+| `/health/ready` and `/api/stats` from outside Render | Pending first deploy |
+| Public p95, throughput, and failures | Not measured |
+| Deployment frequency and users | Not measured |
+
 ## Initial trade-offs
 
 ### One container instead of separate frontend and API services
@@ -36,6 +53,16 @@ justifies the added operational complexity.
 The dataset is precomputed and read-only, so bundling DuckDB makes a deployment
 self-contained and repeatable. It is not suitable for concurrent writes or
 independent data updates; a new dataset currently requires building a new image.
+
+### Free hosting instead of an always-on instance
+
+The first version avoids a compute subscription and needs no persistent disk
+because the database is read-only and included in the image. The trade-off is
+that the service sleeps after 15 minutes without traffic and can take about a
+minute to wake. This is acceptable for an initial portfolio demo but is not an
+availability guarantee. Upgrade only if actual recruiter use or measurements
+show that the cold start is harmful. External images remain dependent on the
+public Hugging Face dataset/CDN.
 
 ### Pinned direct dependencies, floating transitive dependencies
 

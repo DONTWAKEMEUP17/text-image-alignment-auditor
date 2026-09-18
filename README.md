@@ -144,6 +144,36 @@ docker compose down
 See [`docs/architecture.md`](docs/architecture.md) for the deployment shape,
 technical trade-offs, and measured production baseline.
 
+### Deploy the first public demo on Render
+
+[`render.yaml`](render.yaml) defines one **free** Docker web service. It uses
+the existing `Dockerfile` to serve the UI and API from one public origin, and
+checks `/health/ready` before routing traffic. The service tracks `main` and
+automatically deploys a new commit only after its CI checks pass.
+
+After this change is merged into `main` and CI is green:
+
+1. In the Render Dashboard, choose **New → Blueprint**, connect this GitHub
+   repository, and select the `main` branch and root `render.yaml` file.
+2. Review the proposed service carefully: `alignment-auditor`, **Web Service**,
+   **Docker**, **Free**. Confirm it does **not** propose a paid database or disk,
+   then choose **Deploy Blueprint**.
+3. Open the assigned `https://<service>.onrender.com/` URL. Check the homepage,
+   `/health/ready`, `/api/stats`, and all four research-question views, including
+   image loading. Save the actual URL and first deploy date in
+   [`docs/architecture.md`](docs/architecture.md); do not claim public uptime or
+   latency from the local benchmark.
+
+The free service sleeps after 15 minutes without inbound traffic. Its next
+visitor may wait about a minute for startup, so open the demo link shortly
+before sharing it with a recruiter. The filesystem is ephemeral, which is safe
+for the bundled read-only DuckDB file but not for user uploads or runtime data
+edits. Free services also have monthly usage limits; check the Render Dashboard
+before adding a payment method or enabling anything billable.
+
+See the [Render Blueprint setup](https://render.com/docs/infrastructure-as-code)
+and [free-service limitations](https://render.com/docs/free) for current details.
+
 ### Measure local API latency
 
 With the container running and a Python 3.10+ development environment
