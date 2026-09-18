@@ -37,4 +37,21 @@ fi
 
 curl --fail --silent --show-error --max-time 5 "$base_url/" >/dev/null
 curl --fail --silent --show-error --max-time 5 "$base_url/api/stats" >/dev/null
-echo "Smoke test passed: readiness, homepage, and API stats"
+
+logs_found=false
+for attempt in {1..5}; do
+  logs="$(docker logs "$container" 2>&1)"
+  if [[ "$logs" == *'"event": "request_completed"'* &&
+        "$logs" == *'"path": "/api/stats"'* ]]; then
+    logs_found=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$logs_found" != true ]]; then
+  echo "Container did not emit a structured API request log" >&2
+  exit 1
+fi
+
+echo "Smoke test passed: readiness, homepage, API stats, and JSON request log"

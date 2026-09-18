@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from server.observability import logger
 from server.server import app
 
 
@@ -17,3 +18,12 @@ def database_path():
         yield app.state
     finally:
         app.state.db_path = original_path
+
+
+@pytest.fixture
+def app_logs(caplog):
+    logger.addHandler(caplog.handler)
+    try:
+        yield caplog
+    finally:
+        logger.removeHandler(caplog.handler)

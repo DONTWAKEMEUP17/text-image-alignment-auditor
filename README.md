@@ -1,5 +1,8 @@
 # Alignment Auditor
 
+**Live demo:** [alignment-auditor.onrender.com](https://alignment-auditor.onrender.com/)
+— the free host may take about a minute to wake after inactivity.
+
 Alignment Auditor was developed by **Xiaoyu Zhong** and **`yhuan331`** as a team
 project for ECS 273 at UC Davis.
 
@@ -151,7 +154,7 @@ the existing `Dockerfile` to serve the UI and API from one public origin, and
 checks `/health/ready` before routing traffic. The service tracks `main` and
 automatically deploys a new commit only after its CI checks pass.
 
-After this change is merged into `main` and CI is green:
+The first service is live. To recreate it in another Render workspace:
 
 1. In the Render Dashboard, choose **New → Blueprint**, connect this GitHub
    repository, and select the `main` branch and root `render.yaml` file.

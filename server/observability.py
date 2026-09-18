@@ -1,9 +1,15 @@
 import json
 import logging
+import sys
 from datetime import datetime, timezone
 
 logger = logging.getLogger("alignment_auditor")
 logger.setLevel(logging.INFO)
+logger.propagate = False
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
 
 
 def log_event(level: int, event: str, **fields):
