@@ -25,7 +25,7 @@ supports a read-only root filesystem with `/tmp` mounted as temporary storage.
 ## First public deployment
 
 On 2026-09-18, Render showed a Live, Blueprint-managed **Free Docker** web
-service built from `main` at merge commit `f8d26de`. The public URL is
+service automatically deployed from `main`. The public URL is
 <https://alignment-auditor.onrender.com/>. The following are point-in-time
 checks from outside Render, not an uptime or sustained-load measurement.
 
@@ -38,17 +38,18 @@ checks from outside Render, not an uptime or sustained-load measurement.
 | RQ1–RQ4 API samples | HTTP 200; nonempty expected data |
 | Browser check | RQ1/2 charts and image-to-concept drill-down, RQ3 charts, RQ4 scatter point-to-paired-image detail rendered |
 | External image | One Hugging Face image returned HTTP 206 with PNG signature |
-| Structured application logs | Missing on initial deployed commit; fix verified locally on this branch, pending redeploy |
+| Structured application logs | Verified on Render on 2026-09-18: `/api/stats` produced a JSON `request_completed` event with status 200 |
 | Public p95, throughput, and failures | Not measured |
 | Deployment frequency and users | Not measured; one deploy is not a frequency trend |
 
 Render probes `/health/ready` and waits for passing CI checks before future
 automatic deploys. The initial live instance displayed Uvicorn access logs but
 not our JSON application events. A local-container reproduction confirmed the
-missing stdout handler; this branch routes JSON events to stdout, suppresses
+missing stdout handler. The fix routes JSON events to stdout, suppresses
 routine readiness log noise, and verifies an API event in the Docker smoke test.
-Recheck the Render log stream after this fix deploys before claiming structured
-logging works publicly.
+After the fix deployed, a public `/api/stats` request produced a structured
+`request_completed` event in Render Logs. This verifies log delivery for that
+request, not continuous availability or logging completeness.
 
 ## Initial trade-offs
 
@@ -109,7 +110,7 @@ public users, production uptime, or sustained load capacity.
 ## Latest local verification
 
 Measured on 2026-09-18 against the bundled DuckDB dataset on the logging-fix
-branch (not yet deployed):
+branch; the fix was subsequently deployed and its live log delivery verified:
 
 | Signal | Result |
 | --- | ---: |
