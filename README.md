@@ -190,7 +190,8 @@ python scripts/benchmark_api.py --base-url http://localhost:8000 \
 The JSON output reports successful requests, failures, p50/p95 latency, and
 throughput. The command exits nonzero if any measured request fails. Run it
 against your own local instance, not an unrelated public service. The exact
-container-based method and measured baseline are in `docs/architecture.md`.
+container-based method and both local and bounded public measurements are in
+`docs/architecture.md`.
 
 ### Optional environment variables
 

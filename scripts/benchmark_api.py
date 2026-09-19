@@ -1,4 +1,6 @@
-"""Measure local API response latency under a small, repeatable load."""
+"""Measure JSON API response latency under a small, repeatable load."""
+
+from __future__ import annotations
 
 import argparse
 import asyncio

@@ -39,7 +39,7 @@ checks from outside Render, not an uptime or sustained-load measurement.
 | Browser check | RQ1/2 charts and image-to-concept drill-down, RQ3 charts, RQ4 scatter point-to-paired-image detail rendered |
 | External image | One Hugging Face image returned HTTP 206 with PNG signature |
 | Structured application logs | Verified on Render on 2026-09-18: `/api/stats` produced a JSON `request_completed` event with status 200 |
-| Public p95, throughput, and failures | Not measured |
+| Public p95, throughput, and failures | Measured in a bounded client-side benchmark; see below |
 | Deployment frequency and users | Not measured; one deploy is not a frequency trend |
 
 Render probes `/health/ready` and waits for passing CI checks before future
@@ -50,6 +50,23 @@ routine readiness log noise, and verifies an API event in the Docker smoke test.
 After the fix deployed, a public `/api/stats` request produced a structured
 `request_completed` event in Render Logs. This verifies log delivery for that
 request, not continuous availability or logging completeness.
+
+### Public API latency snapshot
+
+Measured at 2026-09-19 02:40 UTC from a developer laptop over the public
+internet, after waking the free Render service. The client used Python 3.9.6
+and HTTPX 0.27.2. Each endpoint had its own warm-up requests before the timed
+sample.
+
+| GET endpoint | Warm-up | Measured requests | Concurrent requests | p50 | p95 | Throughput | Failures |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/api/stats` | 5 | 100 | 2 | 108.62 ms | 211.09 ms | 14.10 req/s | 0 |
+| `/api/rq4/paired-scatter` | 3 | 50 | 2 | 493.47 ms | 784.16 ms | 3.75 req/s | 0 |
+
+These are client-observed results from one short run. They include internet
+and platform overhead, but exclude the free-tier cold start because the service
+was deliberately awakened first. They do not establish sustained capacity,
+uptime, geographic performance, or a service-level objective.
 
 ## Initial trade-offs
 
