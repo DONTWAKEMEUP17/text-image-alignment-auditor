@@ -1,214 +1,147 @@
 # Alignment Auditor
 
-**Live demo:** [alignment-auditor.onrender.com](https://alignment-auditor.onrender.com/)
-— the free host may take about a minute to wake after inactivity.
+An interactive visual analytics app for checking how well text-to-image models
+render the concepts in their prompts. Compare Stable Diffusion 1.x and FLUX.1
+using precomputed CLIP scores, then drill down from aggregate charts to paired
+images and per-concept results.
 
-Alignment Auditor was developed by **Xiaoyu Zhong** and **`yhuan331`** as a team
-project for ECS 273 at UC Davis.
+**[Open the live demo](https://alignment-auditor.onrender.com/)** ·
+[Architecture and measurements](docs/architecture.md) ·
+[API docs](https://alignment-auditor.onrender.com/docs)
 
-## Description
+The demo runs on a free Render instance and may take about a minute to wake
+after inactivity.
 
-Alignment Auditor is an interactive visual analytics tool for evaluating how well text-to-image generative models render the concepts described in their input prompts. The tool uses **CLIP scores** — a measure of semantic similarity between an image and its prompt — to quantify and compare alignment quality across two models: **Stable Diffusion 1.x (SD 1.x)** and **FLUX.1**. Prompts and the SD 1.x reference images are drawn from the [DiffusionDB](https://huggingface.co/datasets/poloclub/diffusiondb) dataset; the FLUX.1 images are generated from the same prompts so the two models can be compared head-to-head.
+## What you can explore
 
-The tool is organized around four research questions:
+| View | Question | Interaction |
+| --- | --- | --- |
+| RQ1 | How are alignment scores distributed? | Compare model-level histograms and summary statistics. |
+| RQ2 | Which concept categories are hardest to render? | Select a category or concept to inspect example images. |
+| RQ3 | How does CFG guidance scale relate to SD 1.x alignment? | Explore the score-by-guidance visualizations. |
+| RQ4 | How do the models compare on the same prompts? | Select a scatter-plot point to inspect paired images and scores. |
 
-- **RQ1** — What is the overall distribution of alignment scores across the dataset?
-- **RQ2** — Which concept categories (e.g. nouns vs. adjectives, styles, artist references) are harder for models to render, and which specific concepts fail most often?
-- **RQ3** — How does the CFG (Classifier-Free Guidance) scale parameter affect alignment in SD 1.x?
-- **RQ4** — How do SD 1.x and FLUX.1 compare head-to-head on the same prompts?
+The analysis covers **3,000 SD 1.x images** and **2,699 FLUX.1 images**.
+Prompts and SD 1.x reference images come from
+[DiffusionDB](https://huggingface.co/datasets/poloclub/diffusiondb); FLUX.1
+images were generated from the same prompts. CLIP similarity is a useful
+comparison signal, not a complete measure of image quality or prompt fidelity.
 
-The backend is a **FastAPI** server backed by a **DuckDB** database containing pre-computed CLIP scores and per-concept labels for ~3,000 SD 1.x images and ~2,700 FLUX.1 images. The frontend is a **React + Vite** single-page application with interactive, linked charts (histograms, box plots, scatter plots, heatmaps) and an image gallery, letting users drill down from aggregate trends all the way to individual images and their per-concept scores.
+## Engineering snapshot
 
-## Data
+| Evidence | Measured or verified result |
+| --- | --- |
+| Public deployment | React UI and FastAPI served from one Docker image on Render; `/health/ready` checks the bundled database. |
+| CI | Backend lint/tests/coverage, frontend build, production image build and runtime smoke test, and Python dependency audit. |
+| Tests | 44 backend tests passed; 99.42% statement coverage in the 2026-09-18 local verification. |
+| Observability | Structured JSON request logs and safe API errors; a `/api/stats` request log was verified in Render Logs on 2026-09-18. |
+| Public latency snapshot | On 2026-09-19, `/api/stats` p95 was 211.09 ms (100/100 successful); `/api/rq4/paired-scatter` p95 was 784.16 ms (50/50 successful), at concurrency 2. |
 
-No data preparation is required to run the app.
-
-- The pre-built database (`server/alignment_auditor.duckdb`) ships with the repository and contains all pre-computed CLIP scores and concept labels.
-- The generated images are hosted on a **public Hugging Face dataset** — [`dontwakemeup/prompt-image-auditor`](https://huggingface.co/datasets/dontwakemeup/prompt-image-auditor) — and are loaded on demand at runtime via URLs stored in the database. **You do not need to download any images**; they stream directly from Hugging Face's CDN when the app runs.
-- A backup archive of all images is also available in this [Google Drive folder](https://drive.google.com/drive/folders/1CivDBvpvf7Y0b8TSd4c7DWoPlfaopoel?usp=drive_link) in case the Hugging Face dataset is unavailable.
+The latency figures are from one short, warmed-up, client-side run over the
+public internet. They are **not** uptime, sustained-capacity, or cold-start
+claims. See [methods, throughput, trade-offs, and local baselines](docs/architecture.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     A["DiffusionDB prompts and SD 1.x images"] --> B["Data and CLIP processing pipeline"]
-    C["FLUX.1 image generation"] --> B
-    B --> D["Hugging Face image dataset"]
-    B --> E["DuckDB analytical database"]
-    E --> F["FastAPI REST API"]
-    D --> F
-    F --> G["React and Vite frontend"]
-    G --> H["Linked charts and image gallery"]
+    A --> C["FLUX.1 generation from the same prompts"]
+    C --> B
+    B --> D["Bundled DuckDB: scores, concepts, image URLs"]
+    B --> E["Hugging Face image dataset"]
+    D --> F["FastAPI REST API"]
+    F --> G["React/Vite frontend"]
+    G --> H["Browser: linked charts and image gallery"]
+    E --> H
 ```
 
-The processing pipeline computes image-level and per-concept CLIP scores. DuckDB
-stores the analytical records, while generated images are hosted on Hugging Face.
-FastAPI exposes filtered and aggregated results to the React application.
+The offline pipeline computes image-level and per-concept CLIP scores and
+publishes image data. At runtime, the production Docker image serves the
+React UI and FastAPI from one non-root Python service. FastAPI reads the bundled,
+read-only DuckDB database; the browser loads images on demand from the
+[public Hugging Face dataset](https://huggingface.co/datasets/dontwakemeup/prompt-image-auditor).
+No dataset preparation or image download is required to run the app. The
+[image archive backup](https://drive.google.com/drive/folders/1CivDBvpvf7Y0b8TSd4c7DWoPlfaopoel?usp=drive_link)
+is available separately.
 
-## Team Contributions
+The single-container, bundled-database design keeps this read-only demo simple
+to deploy, but data changes require a new image and external image delivery
+depends on Hugging Face. See [architecture and trade-offs](docs/architecture.md)
+for details.
 
-- **Xiaoyu Zhong** (Git identities: `calista` and `DontWakeMeUp`) — generated
-  and prepared the image data; implemented CLIP-based image and concept scoring;
-  designed the DuckDB database; built the FastAPI backend and API contract; and
-  published generated images to Hugging Face for CDN-backed delivery.
-- **`yhuan331`** — implemented the React/Vite frontend and its interactive,
-  linked visualizations and image-gallery interactions.
-- Both contributors collaborated on research questions, integration, debugging,
-  and the final project presentation.
+## Contributions
 
-## Installation
+Alignment Auditor began as a two-person ECS 273 project at UC Davis:
 
-### Prerequisites
+- **Xiaoyu Zhong** (`calista` / `DontWakeMeUp`) prepared the image data,
+  implemented CLIP-based image and concept scoring, designed the DuckDB
+  database, built the FastAPI backend and API contract, and published the
+  generated images to Hugging Face. Xiaoyu later added the public deployment,
+  container, CI, tests, logging, health checks, and benchmarks.
+- **`yhuan331`** built the React/Vite frontend, linked visualizations, and
+  image-gallery interactions.
+- Both contributors collaborated on the research questions, integration,
+  debugging, and course presentation.
 
-- Python 3.10+
-- Node.js 18+
+## Run locally
 
-### Backend
-
-```bash
-# From the project root
-python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-To run the backend test suite:
-
-```bash
-pip install -r requirements-dev.txt
-pytest
-```
-
-CI also audits `requirements.txt` for known vulnerabilities in both direct and
-transitive production Python packages. This does not include the separate
-frontend build-tool dependency tree or replace application security testing.
-
-### Frontend
-
-```bash
-cd client
-npm install
-```
-
-## Execution
-
-The backend and frontend run in two separate terminals.
-
-### 1. Start the backend
-
-```bash
-# From the project root (with .venv activated)
-cd server
-uvicorn server:app --reload --port 8000
-```
-
-The API will be available at `http://localhost:8000`.
-Interactive API docs: `http://localhost:8000/docs`
-
-### 2. Start the frontend
-
-```bash
-cd client
-npm run dev
-```
-
-Open `http://localhost:5173` in your browser.
-
-### 3. Run the demo
-
-With both servers running, open `http://localhost:5173` and walk through the four tabs:
-
-- **RQ1** — View the overall CLIP-score distribution as a histogram and read off summary statistics for each model.
-- **RQ2** — Compare which concept categories score lowest, then click a category or concept to see the example images behind the numbers.
-- **RQ3** — Inspect how the CFG guidance scale relates to alignment in SD 1.x.
-- **RQ4** — Click any point in the SD-vs-FLUX scatter plot to open the two paired images side by side, along with each model's score for that prompt.
-
-Charts are linked — selecting a point or category updates the image gallery so you can move from an aggregate trend down to the individual images driving it.
-
-## Run the production container
-
-The production image builds the React frontend in a Node stage, then copies only
-the compiled assets into a non-root Python runtime that serves both the UI and API.
+The shortest path is the production-style container. With Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-Open `http://localhost:8000`. The API documentation remains available at
-`http://localhost:8000/docs`, and readiness is reported at
-`http://localhost:8000/health/ready`.
+Open <http://localhost:8000>. API docs are at <http://localhost:8000/docs>;
+readiness is at <http://localhost:8000/health/ready>. Stop with
+`docker compose down`.
 
-Stop the service with:
+For separate backend/frontend development, use Python 3.10+ and Node.js 20+:
 
 ```bash
-docker compose down
+python -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
+cd server
+uvicorn server:app --reload --port 8000
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for the deployment shape,
-technical trade-offs, and measured production baseline.
+In a second terminal:
 
-### Deploy the first public demo on Render
+```bash
+cd client
+npm ci
+npm run dev
+```
 
-[`render.yaml`](render.yaml) defines one **free** Docker web service. It uses
-the existing `Dockerfile` to serve the UI and API from one public origin, and
-checks `/health/ready` before routing traffic. The service tracks `main` and
-automatically deploys a new commit only after its CI checks pass.
+Open <http://localhost:5173>. The Vite development server proxies API requests
+to port 8000. The prebuilt database is included at
+`server/alignment_auditor.duckdb`.
 
-The first service is live. To recreate it in another Render workspace:
+## Verify and deploy
 
-1. In the Render Dashboard, choose **New → Blueprint**, connect this GitHub
-   repository, and select the `main` branch and root `render.yaml` file.
-2. Review the proposed service carefully: `alignment-auditor`, **Web Service**,
-   **Docker**, **Free**. Confirm it does **not** propose a paid database or disk,
-   then choose **Deploy Blueprint**.
-3. Open the assigned `https://<service>.onrender.com/` URL. Check the homepage,
-   `/health/ready`, `/api/stats`, and all four research-question views, including
-   image loading. Save the actual URL and first deploy date in
-   [`docs/architecture.md`](docs/architecture.md); do not claim public uptime or
-   latency from the local benchmark.
+From the repository root, run backend tests and lint, then build the frontend:
 
-The free service sleeps after 15 minutes without inbound traffic. Its next
-visitor may wait about a minute for startup, so open the demo link shortly
-before sharing it with a recruiter. The filesystem is ephemeral, which is safe
-for the bundled read-only DuckDB file but not for user uploads or runtime data
-edits. Free services also have monthly usage limits; check the Render Dashboard
-before adding a payment method or enabling anything billable.
+```bash
+python -m pytest --cov=server --cov-report=term-missing
+ruff check server scripts tests
+(cd client && npm ci && npm run build)
+```
 
-See the [Render Blueprint setup](https://render.com/docs/infrastructure-as-code)
-and [free-service limitations](https://render.com/docs/free) for current details.
-
-### Measure local API latency
-
-With the container running and a Python 3.10+ development environment
-(`pip install -r requirements-dev.txt`), run:
+To reproduce a local API latency sample with the app running:
 
 ```bash
 python scripts/benchmark_api.py --base-url http://localhost:8000 \
   --path /api/stats --requests 1000 --concurrency 5 --warmup 20
 ```
 
-The JSON output reports successful requests, failures, p50/p95 latency, and
-throughput. The command exits nonzero if any measured request fails. Run it
-against your own local instance, not an unrelated public service. The exact
-container-based method and both local and bounded public measurements are in
-`docs/architecture.md`.
+The benchmark reports successes, failures, p50/p95 latency, and throughput;
+it exits nonzero on a measured failure. Run it only against a service you own.
+The [architecture notes](docs/architecture.md) record the exact local and
+public measurement methods.
 
-### Optional environment variables
-
-| Variable  | Default                             | Description                  |
-| --------- | ----------------------------------- | ---------------------------- |
-| `DB_PATH` | `server/alignment_auditor.duckdb`   | Path to the DuckDB database  |
-
-## Repository structure
-
-```
-.
-├── requirements.txt
-├── requirements-dev.txt
-├── tests/                            # backend API tests
-├── server/
-│   ├── server.py                    # FastAPI app + REST endpoints
-│   └── alignment_auditor.duckdb     # pre-built database (CLIP scores + concepts)
-└── client/                          # React + Vite frontend
-    └── src/
-```
+[`render.yaml`](render.yaml) configures the public Docker service from `main`,
+with automatic deployment after passing CI checks and a `/health/ready` probe.
+It uses Render's free plan; check the
+[current free-service limits](https://render.com/docs/free) before recreating
+the service or enabling billable resources.
